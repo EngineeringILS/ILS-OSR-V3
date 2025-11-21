@@ -25,7 +25,7 @@ Keeps ROS2 packages, embedded firmware, and shared libraries in a single repo, w
 - **Supports testing and simulation**  
 Enables bench tests and hardware-in-the-loop setups, and simulation environments to verify code before deployment.
 
-- **Improvesmaintainability and handoff**
+- **Improves maintainability and handoff**  
 Documents architecture, conventions,a dn workflows so future Lunabotics teams can extend and adapt the CDH stack without reverse-engineering legacy code.
 
 ---
