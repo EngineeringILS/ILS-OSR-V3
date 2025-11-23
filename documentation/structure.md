@@ -1,6 +1,7 @@
 # Project Structure
 ```
 lunabotics-cdh-dev/
+├── common # Shared C++ Libraries for ESP-IDF/ROS2
 ├── documentation # Central location for project-wide documentation.
 │   ├── code_planning
 │   └── structure.md
