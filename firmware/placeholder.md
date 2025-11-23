@@ -1,1 +1,0 @@
-Branch and Populate /firmware using ESP-IDF.

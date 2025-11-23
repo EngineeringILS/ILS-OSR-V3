@@ -5,7 +5,6 @@ lunabotics-cdh-dev/
 │   ├── code_planning
 │   └── structure.md
 ├── firmware # ESP-IDF Firmware Project
-│   └── placeholder.md
 ├── LICENSE 
 ├── protocols # Location for shared protocols
 │   └── placeholder.md
