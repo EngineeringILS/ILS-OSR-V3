@@ -4,7 +4,9 @@
 
 #include <cstdint>
 
-namespace lunabotics_common_sensors {
+namespace Lunabotics {
+namespace Common {
+namespace Sensors {
 
 /**
  * @brief Abstract interface for all hardware sensors in the project.
@@ -27,11 +29,12 @@ public:
      * @brief Defines the communication bus being used.
      */
     enum class InterfaceType : uint8_t {
-        I2C,  // I2C on ESP32 or Jetson 
-        SPI,  // SPI on ESP32 or Jetson
-        UART, // UART on ESP32 or Jetson
-        CAN,  // CAN on Jetson
-        USB  // USB on Jetson
+        I2C,   // I2C on ESP32 or Jetson 
+        SPI,   // SPI on ESP32 or Jetson
+        UART,  // UART on ESP32 or Jetson
+        CAN,   // CAN on Jetson
+        USB,   // USB on Jetson
+        OTHER, // Any other interface
     };
 
     /**
@@ -107,5 +110,7 @@ protected:
     const HostController m_host;
     
 };
+}
+}
 }
 #endif 
