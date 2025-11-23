@@ -1,0 +1,27 @@
+# --- Build Artifacts ---
+# Ignore the build directory
+/build/
+
+# Ignore compiled libraries and executables
+*.a
+*.so
+*.dll
+*.exe
+*.out
+test_runner
+
+# --- CMake Files ---
+# Ignore CMake user-specific files and cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
+
+# --- VS Code ---
+# Ignore user-specific workspace settings
+.vscode/
+
+# --- Other ---
+# Ignore test results
+/Testing/
