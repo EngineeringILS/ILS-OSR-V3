@@ -53,9 +53,10 @@ public:
      * @param host The host processor this driver is running on (OBC, ESP32)
      */
     explicit SensorInterface(InterfaceType interface, HostController host) : 
+        m_state(SensorState::UNINITIALIZED),
         m_interface(interface),
-        m_host(host),
-        m_state(SensorState::UNINITIALIZED) {}
+        m_host(host)
+    {}
 
     /**
      * @brief Virtual destructor.
