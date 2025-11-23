@@ -18,10 +18,6 @@ cmake_install.cmake
 CTestTestfile.cmake
 DartConfiguration.tcl
 
-# --- VS Code ---
-# Ignore user-specific workspace settings
-.vscode/
-
 # --- Other ---
 # Ignore test results
 /Testing/

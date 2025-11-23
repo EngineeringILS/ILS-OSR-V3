@@ -25,7 +25,7 @@ int main() {
 
     // Store data readings to compare changes:
     std::vector<float> ax_readings;
-    const int NUM_READINGS = 200; // Run for 200 iterations
+    const int NUM_READINGS = 20; // Run for 200 iterations
     bool data_is_changing = false;
 
     // 4. Run a FINITE loop
@@ -43,12 +43,12 @@ int main() {
 
         // C. Print the data (optional, but good for debugging)
         // Note: This will spam the test log. You can comment it out.
-        // std::cout << "ax: " << imu_data.ax << std::endl;
-        // std::cout << "ay: " << imu_data.ay << std::endl;
-        // std::cout << "az: " << imu_data.az << std::endl;
+        std::cout << "ax: " << imu_data.ax << std::endl;
+        std::cout << "ay: " << imu_data.ay << std::endl;
+        std::cout << "az: " << imu_data.az << std::endl;
 
-        // D. Sleep for 10ms
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // D. Sleep for 100ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     // 5. --- Verification Step ---
