@@ -1,51 +1,40 @@
-# Set the minimum CMake version
-# 3.16 is a good, modern choice compatible with ROS2 Humble and ESP-IDF 5.x
-cmake_minimum_required(VERSION 3.16)
+# Define cpp sources once for all platforms:
 
-# Define the project name
-project(lunabotics_common CXX)
-
-# Set the C++ standard to C++17
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# --- 1. Define the library ---
-# This creates a single library target named 'common_lib'.
-# We list all the .cpp files that need to be compiled into it.
-add_library(common_lib STATIC
-    # --- Source Files (.cpp) ---
+set(SRCS
     src/drivers/FakeIMU.cpp
     # Add new .cpp files here as you create them:
     # src/drivers/Bno055.cpp
     # src/utils/pid_controller.cpp
 )
+# INFO: Header Files are Automatically included in each .cpp, the VScode configuration does not know this, you need to manually set settings.json when developing headers.
 
-# --- 2. Expose the include directory ---
-# This command "attaches" the 'include' folder to the 'common_lib' target.
-#
-# By setting it to PUBLIC, any other project that links against
-# 'common_lib' will AUTOMATICALLY get 'common/include'
-# added to its include path.
-target_include_directories(common_lib
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+# Platform Specific Compilation Instructions:
 
-# This should ideally test the fake_imu.cpp program.
-if(BUILD_TESTING)
-    # --- ADD THIS ---
-    # Tell CMake to enable CTest
-    enable_testing()
-
-    # Create an executable named 'test_runner' from our new test file
-    add_executable(test_runner
-        test/testFakeIMU.cpp
+# ESP-IDF Compilation:
+if(DEFINED IDF_TARGET)
+    # ESP-IDF component mode: Register as an IDF component
+    idf_component_register(
+        SRCS ${SRCS}
+        INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
+    # Set C++17 for the component target, may need to be changed depending on features invoked in the common library.
+    target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 
-    # Link the 'test_runner' against our 'common_lib'
-    target_link_libraries(test_runner PRIVATE common_lib)
+# TODO: Implement ROS2 target handling (if needed).
+#if (ROS2)
 
-    # --- AND ADD THIS ---
-    # Register the executable 'test_runner' as a test named 'test_runner'
-    add_test(NAME test_runner COMMAND test_runner)
+# Standalone Compilation:
+else()
+    cmake_minimum_required(VERSION 3.16)
+    project(lunabotics_common CXX)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    add_library(common_lib STATIC ${SRCS})
+    target_include_directories(common_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    if(BUILD_TESTING)
+        enable_testing()
+        add_executable(test_runner test/testFakeIMU.cpp)
+        target_link_libraries(test_runner PRIVATE common_lib)
+        add_test(NAME test_runner COMMAND test_runner)
+    endif()
 endif()
