@@ -1,5 +1,3 @@
-
-
 #ifndef LUNABOTICS_FAKEIMU_HPP_
 #define LUNABOTICS_FAKEIMU_HPP_
 

@@ -1,4 +1,3 @@
-
 #ifndef LUNABOTICS_SENSORINTERFACE_HPP_
 #define LUNABOTICS_SENSORINTERFACE_HPP_
 
@@ -80,7 +79,7 @@ public:
     /**
      * @brief Gets the current state of the sensor.
      */
-    SensorState getstate() const { return m_state; }
+    SensorState getState() const { return m_state; }
 
     /**
      * @brief Gets the interface (I2C, SPI, etc...).
