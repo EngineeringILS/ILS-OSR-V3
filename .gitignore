@@ -9,7 +9,6 @@ Desktop.ini
 .nfs*
 
 # Editor directories and files
-.vscode/
 .idea/
 
 # Temporary and backup files

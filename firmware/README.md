@@ -1,32 +1,39 @@
-# _Sample project_
+# ESP-IDF ESP32 Firmware
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+### Purpose
+Provide a Wi-Fi/Serial command interface for:
+1. Recieving Ground Station commands (over Wi-Fi) and OBC System State (over Serial)
+2. Processing commands and monitoring the system state
+3. Transmitting OBC System State (over Wi-Fi), Processed Commands (over Serial), and physical Start/Stop/Restart (over GPIO)
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+### Simplified Communication Flows
+1. Ground Station (Wi-Fi) <--> ESP32 (Serial) <--> OBC
+2. Ground Station (commands) --> ESP32 (processed commands + physical controls) --> OBC
+3. OBC (System State) --> ESP32 (processed System State) --> Ground Station
 
-
-
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
-
-## Example folder contents
-
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
-
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
-
-Below is short explanation of remaining files in the project folder.
-
+### Project Structure
+1. The ESP32 project is programmed in C++ using the ESP-IDF framework.
+2. The `/common` library is incorporated into the `CMakeLists` of this project, ensuring proper compilation and linking.
+3. Communication standards are to be defined using the `/common` library framework. 
+4. The filesystem structure of this module is below:
 ```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
+lunabotics-cdh-dev/firmware
+├── drivers # ESP32 drivers derived from base classes in /common
+├── main  # ESP32 app_main() in main.cpp
+└── tests # ESP32 platform specific tests.
+
+lunabotics-cdh-dev/common
+├── include  
+│   └── common  
+│       ├── drivers # /common base class definitions
+│       └── utils   # /common utility definitions
+├── src
+│   ├── drivers # /common base class implementations
+│   └── utils   # /common utility implementations
+└── test # /common specific tests, likely un-used for the ESP32 portion of this project.
 ```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+
+### Development Standards
+1. Plan before programming, document program plans in `/documentation`
+2. Ensure adherence to `/common` libraries and communication standards.
+3. Create unit tests for `/firmware` specific functionality and `/common` specific functionality.
