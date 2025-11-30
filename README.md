@@ -1,39 +1,64 @@
-# CDH Software Stack - ROS2 & ESP-IDF
+# Project Overview
 
-This repository hosts all Command & Data Handling (CDH) software for the TAMU SEDS Lunabotics robot, including:
+### Mission Statement
+Provide a unfiied, maintainable, and extensible Comamnd & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
+enabling reliable integration between high-level autonomy, teleopation, and low-level hardware control.
 
-- **ROS2** packages running on the Onboard Computer (OBC)
+### Real-World Significance
+This project addresses key challenges of robotics system integration in competitive and research environments, ensuring
+robust communication, standardized interfaces, and streamlined development for current and future teams.
 
-- **ESP-IDF** firmware for the ESP32 Onboard Microcontroller handling telemetry and OOB management, complementing the OBC.
+### Key Features 
+- **Unified Architecture:** Bridges ROS2-based autonomy and teleoperation with embedded microcontroller firmware.
+- **Standardized Interfaces:** Defines consistent communication protocols and APIs for seamless subsystem integration.
+- **Centralized Codebase:** Houses all CDH-realted code, documentation, and tools in a single repository.
+- **Testing & Simulation Support:** Comprehensive documentation and modular design for easy onboarding and future development.
+
+### Intended Users
+- TAMU Lunabotics team members (present and future)
+- Robotics Researchers and team developers seeking a reference CDH Stack
+- Industry partners and sponsors aiming to implement reliable & autonomous robotics
+- Open-source robotics community (via planned public releases)
+
+### Scope
+The repository includes:
+- ROS2 packages for the Onboard Computer (OBC)
+- ESP-IDF Firmware for the ESP32 microcontroller
+- Shared libraries, documentation, and development tools
+
+# Getting Started
+### Prerequisites
+This project requires two distinct platforms for development:
+* For ROS2 development in `/ros2_ws`:  
+  -  Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with ROS2 Humble and C++ Build Tools installed
+* For ESP-IDF development in `/firmware`:
+  - VS-Code with the ESP-IDF extension enabled and working.
+  - Documented incompatibilies on Windows 11 Hosts with MSVC.
+  - It is reccomended to use `C:\Lunabotics` on Windows for development.
+
+* Alternatively for pure C++ `/common`:
+  - Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with C++ Build Tools installed.
+  - The `.vscode` for `/common`is installation agnostic and has been tested to work with the VSCode CMake extension on multiple developer workstations.
 
 
-## Project Purpose
+Generally, it is recommended to use a Windows 11 based system for development, with ESP-IDF installed on the Host Operating System and ROS2 installed on an Ubuntu 22.04.05LTS WSL Virtual Machine.
 
-The goal of this prioject is to provide a **cohesive, well-structured software stack** for the CDH subsystem that:
+### Setup Instructions
+TODO
 
-- **Bridges high-level autonomy and teleoperative control and low-level hardware**  ROS2 nodes on the OBC coordinate with:
-    - Ground Station for teleoperative control and telemetry output 
-    - MCU motor control
-    - OBC Sensor Input
 
-    To expose a clean API for GNC/Autonomy.
 
-- **Standardizes interfaces across the robot** Defines consistent topics, messages, and communication patterns (Wi-Fi/serial/etc.) so every subsystem (GNC, Electrical, Mechanical, Structural) can integrate against a predictable CDH layer.
 
-- **Centralizes all CDH code in one place**   
-Keeps ROS2 packages, embedded firmware, and shared libraries in a single repo, with a consistent layout to ensure code reusability for future teams.
 
-- **Supports testing and simulation**  
-Enables bench tests and hardware-in-the-loop setups, and simulation environments to verify code before deployment.
 
-- **Improves maintainability and handoff**  
-Documents architecture, conventions,a dn workflows so future Lunabotics teams can extend and adapt the CDH stack without reverse-engineering legacy code.  
 
----
 
-In summary: this repository provides a **single source of truth** for all CDH efforts as they relate to the Robot CDH Subsystem, as well as the other Robot subsystems.
 
-## Visibility & Open-Source Policy
+
+
+
+
+# Visibility & Open-Source Policy
 
 This repository is **private** and intended for internal use by
 TAMU SEDS Lunabotics.
