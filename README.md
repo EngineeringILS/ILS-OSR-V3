@@ -1,7 +1,7 @@
 # Project Overview
 
 ### Mission Statement
-Provide a unfiied, maintainable, and extensible Comamnd & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
+Provide a unified, maintainable, and extensible Comamnd & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
 enabling reliable integration between high-level autonomy, teleopation, and low-level hardware control.
 
 ### Real-World Significance
@@ -27,7 +27,9 @@ The repository includes:
 - Shared libraries, documentation, and development tools
 
 # Getting Started
-### Prerequisites
+### 1. Read [Onboarding Documentation](./documentation/ONBOARDING.md) And [Contribution Documentation](./documentation/CONTRIBUTING.md)
+
+### 2.  Prerequisites
 This project requires two distinct platforms for development:
 * For ROS2 development in `/ros2_ws`:  
   -  Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with ROS2 Humble and C++ Build Tools installed
@@ -44,26 +46,14 @@ This project requires two distinct platforms for development:
 Generally, it is recommended to use a Windows 11 based system for development, with ESP-IDF installed on the Host Operating System and ROS2 installed on an Ubuntu 22.04.05LTS WSL Virtual Machine.
 
 ### Setup Instructions
-TODO
-
-
-
-
-
-
-
-
-
-
-
-
+> **Note:** Setup Instructions are planned *but generally, these will not be created until this project exceeds the subteam level, or on an as-needed basis*.
 
 # Visibility & Open-Source Policy
 
-This repository is **private** and intended for internal use by
+> This repository is **private** and intended for internal use by
 TAMU SEDS Lunabotics.
 
-We plan maintaining a separate **public repository** that contains periodic,
+> We plan maintaining a separate **public repository** that contains periodic,
 cleaned snapshots of this codebase for open-source release.
 
 - Internal repo (this one): experimental branches, competition configs,
@@ -87,5 +77,5 @@ This project is actively developed and maintained by the TAMU SEDS Lunabotics CD
 * **Alex Stevens** - [@alexnstevens06](https://github.com/alexnstevens) - Subteam Member - Embedded Systems C++ / ESP-IDF
 * **Enrique Venegas** - [@ev-17](https://github.com/ev-17) - Subteam Member -  ROS2 Teleoperation Control Systems
 * **Miguel Vargas** - [@miguellvargas](https://github.com/miguellvargas) - Subteam Member - ROS2 
-* **Noah Stovall** - [][] - Subteam Member - ROS2 Motor Control 
-* **Timothy Guan** - [][] - Subteam Shadow - Python User Interface
+* **Noah Stovall** - [@noahabuc](https://github.com/noahabuc) - Subteam Member - ROS2 Motor Control 
+* **Timothy Guan** - [@timothyguan](https://github.com/timothyguan) - Subteam Shadow - Python User Interface
