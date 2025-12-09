@@ -52,9 +52,9 @@ public:
      * @param host The host processor this driver is running on (OBC, ESP32)
      */
     explicit SensorInterface(InterfaceType interface, HostController host) : 
-        m_state(SensorState::UNINITIALIZED),
-        m_interface(interface),
-        m_host(host)
+        _State(SensorState::UNINITIALIZED),
+        _Interface(interface),
+        _Host(host)
     {}
 
     /**
@@ -79,17 +79,17 @@ public:
     /**
      * @brief Gets the current state of the sensor.
      */
-    SensorState getState() const { return m_state; }
+    SensorState getState() const { return _State; }
 
     /**
      * @brief Gets the interface (I2C, SPI, etc...).
      */
-    InterfaceType getinterface() { return m_interface;}
+    InterfaceType getinterface() { return _Interface; }
 
     /**
      * @brief Gets the host controller (OBC, ESP32).
      */
-    HostController getHost() { return m_host; }
+    HostController getHost() { return _Host; }
 
 
 protected:
@@ -97,17 +97,17 @@ protected:
      * @brief The current state of the sensor.
      * Child classes MUST update this variable in their init() and read() functions.
      */
-    SensorState m_state;
+    SensorState _State;
 
     /**
      * @brief The fixed interface type for this sensor.
      */
-    const InterfaceType m_interface;
+    const InterfaceType _Interface;
 
     /**
      * @brief the fixed host controller for this sensor driver.
      */
-    const HostController m_host;
+    const HostController _Host;
     
 };
 }

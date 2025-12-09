@@ -2,6 +2,7 @@
 #define LUNABOTICS_FAKEIMU_HPP_
 
 #include <common/drivers/SensorInterface.hpp>
+#include <common/drivers/DataTypes.hpp>
 #include <chrono>
 
 namespace Lunabotics {
@@ -11,21 +12,11 @@ namespace Sensors{
 /**
  * @brief A fake IMU sensor for testing.
  * 
- * This class implements the SensorInterface and generates a simple square wave.
+ * This class implements the SensorInterface and generates a simple sine wave.
  * It serves as a test driver and a template for new hardware drivers.
  */
 class FakeIMU : public SensorInterface {
 public:
-    // Public Nested Struct for Data:
-
-    /**
-     * @brief IMU datastruct that provides a float vector for Linear Acceleration.
-     */
-    struct IMUData {
-        float ax = 0.0f;
-        float ay = 0.0f;
-        float az = 0.0f;
-    };
 
     // Constructor and Destructor:
     /**
@@ -60,7 +51,7 @@ public:
     
 
     // Sensor Specific Public Functions:
-    void getData(IMUData& data) const;
+    void getData(DataTypes::LinearAcceleration& data) const;
 
 private:
     // Private Member Variables:
@@ -68,17 +59,17 @@ private:
     /**
      * @brief Internal storage for the last-read sensor data.
      */
-    IMUData m_data;
+    DataTypes::LinearAcceleration _IMUAcceleration;
 
     /**
      * @brief A counter to manage the square wave timing.
      */
-    int m_read_counter;
+    size_t _readCounter;
     
     /**
      * @brief Start time for data output calculations:
      */
-    std::chrono::time_point<std::chrono::system_clock> m_start_time;
+    DataTypes::Timestamp _startTime;
 };
        
 } // namespace Sensors
