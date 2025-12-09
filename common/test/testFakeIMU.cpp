@@ -8,6 +8,7 @@
 
 // Use the sensor namespace, in this case: Lunabotics::Common::Sensors:
 using namespace Lunabotics::Common::Sensors;
+using namespace Lunabotics::Common::DataTypes;
 
 int main() {
     // 1. Create the FakeIMU object
@@ -20,9 +21,9 @@ int main() {
     }
     std::cout << "[INFO] FakeIMU initialized." << std::endl;
 
-    // 3. Create a data struct
-    FakeIMU::IMUData imu_data;
-
+    // 3. Create a data struct, and string literal unit type:
+    LinearAcceleration imu_data;
+    std::string acceleration = "m/s^2";
     // Store data readings to compare changes:
     std::vector<float> ax_readings;
     const int NUM_READINGS = 20; // Run for 200 iterations
@@ -39,13 +40,18 @@ int main() {
 
         // B. Call getData()
         my_imu.getData(imu_data);
-        ax_readings.push_back(imu_data.ax);
-
+        float a_x = imu_data.a_x.in(au::meters / (au::seconds * au::seconds));
+        float a_y = imu_data.a_y.in(au::meters / (au::seconds * au::seconds));
+        float a_z = imu_data.a_z.in(au::meters / (au::seconds * au::seconds));
+        ax_readings.push_back(a_x);
         // C. Print the data (optional, but good for debugging)
         // Note: This will spam the test log. You can comment it out.
-        std::cout << "ax: " << imu_data.ax << std::endl;
-        std::cout << "ay: " << imu_data.ay << std::endl;
-        std::cout << "az: " << imu_data.az << std::endl;
+        
+
+        
+        std::cout << "ax: " << a_x << acceleration << std::endl;
+        std::cout << "ay: " << a_y << acceleration << std::endl;
+        std::cout << "az: " << a_z << acceleration << std::endl;
 
         // D. Sleep for 100ms
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
