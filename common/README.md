@@ -28,10 +28,14 @@ lunabotics-cdh-dev/common
 ### Planned and Implemented Base Classes
 | Base Class | Description | Implementation Status | 
 |----------|----------|----------|
+| Units.hpp | Proxy for the AU Unit Library without std::template or std::iostream | Implemented |
+| UnitsIO.hpp | Proxy for the AU Unit Library with std::template and std::iostream | Implemented | 
 | SensorInterface.hpp | Abstract base class for all sensors | Implemented |
 | MotorInterface.hpp  | Abstract base class for all motors  | Planned |
 | SerialCommunication.hpp | Abstract base class for all serial communication | Planned |
 | WiFiCommunication.hpp | Abstract base class for all wifi communication | Planned |
+
+> **Note:** Default to using Units.hpp for ESP-IDF and ROS2_WS to avoid blanket C++20 migration issues!
 
 ### Planned and Implemented Example Drivers
 | Driver | Description | Implementation Status |
@@ -39,12 +43,17 @@ lunabotics-cdh-dev/common
 | FakeIMU.hpp | Fake IMU Driver with example methods for SensorInterface wrapping | Implemented |
 | FakeMotor.hpp | Fake Motor Driver with example methods for Motor Interface wrapping | Planned |
 
+### Dependencies 
+| Dependencies | Version | Comment |
+|----------|----------|----------|
+| [AU Unit Library](https://github.com/aurora-opensource/au) | 0.5.0 | Using Single File Installation with NoIO and Template/IO configurations |
+
 ### Supported Platforms 
-| Platform | Support Status |
-|----------|----------|
-| ESP-IDF | Full Support |
-| WSL with CMake | Full Support
-| ROS2 | Planned |
+| Platform | Support Status | Notes |
+|----------|----------|----------|
+| ESP-IDF | Full Support | v4.4+ (v5.1+ if using `UnitsIO.hpp`) |
+| WSL with CMake | Full Support | Standard Buld |
+| ROS2 Humble | Planned | Via Colcon |
 
 ### Development Standards
 1. Plan before programming, document driver plans in `/documentation`.
