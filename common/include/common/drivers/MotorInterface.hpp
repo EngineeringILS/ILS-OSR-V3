@@ -7,7 +7,7 @@ namespace Motors {
 
 /**
  * @brief Abstract interface for all hardware motors in the project.
- * TODO: Build and populate the motor interface base class.
+ * TODO: Implement the motor interface base class.
  * TODO: Build a FakeMotor to demonstrate the proper wrapping of this class.
  */
 class MotorInterface{
