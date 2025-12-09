@@ -1,0 +1,15 @@
+# ROS 2 Build Artifacts
+build/
+install/
+log/
+.colcon/
+
+# C++ Artifacts
+*.pyc
+*.o
+*.so
+*.a
+
+# Editor Configs
+.vscode/
+.idea/
