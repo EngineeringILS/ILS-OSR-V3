@@ -1,6 +1,6 @@
 #include "SerialIO.hpp"
 
-SerialIO::SerialIO(size_t usb_buffer_size = 1024, size_t io_buffer_size = 128) :
+SerialIO::SerialIO(size_t usb_buffer_size, size_t io_buffer_size) :
     usb_serial_buf_size_(usb_buffer_size),
     io_buffer_size_(io_buffer_size),
     usb_config_{
