@@ -1,6 +1,14 @@
 #include <string>
+#include <common/drivers/SerialInterface.hpp>
 #include "driver/usb_serial_jtag.h"
 #include "freertos/FreeRTOS.h"
+
+/**
+ * TODO: Migrate SerialIO to SerialInterface:
+ */
+// class SerialIO : public SerialInterface {
+    
+// };
 
 
 /// @brief A class for managing serial input/output operations using the ESP32's JTAG interface.

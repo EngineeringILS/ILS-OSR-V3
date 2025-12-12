@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <common/drivers/FakeIMU.hpp>
-#include <drivers/SerialIO/SerialIO.hpp>
+#include <SerialIO.hpp>
 
 using namespace Lunabotics::Common::Sensors;
 using namespace Lunabotics::Common::DataTypes;
