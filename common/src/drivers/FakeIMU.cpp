@@ -1,4 +1,5 @@
 #include <common/drivers/FakeIMU.hpp>
+#include <common/protocols/InterfaceProtocols.hpp>
 #define _USE_MATH_DEFINES
 #include <cmath>
 
@@ -7,7 +8,7 @@ namespace Common {
 namespace Sensors{
 
 FakeIMU::FakeIMU(HostController host) :
-    SensorInterface(InterfaceType::OTHER, host),
+    SensorInterface(Protocols::InterfaceType::OTHER, host),
     _readCounter(0)
     {}
 

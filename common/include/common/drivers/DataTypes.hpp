@@ -47,6 +47,20 @@ namespace DataTypes {
         Units::QuantityD<Units::Position> r_z = Units::ZERO;
         Timestamp                             timestamp;
     };
+
+    /**
+     * @brief Struct that provides the Voltage (V) and Percent (%) of a Battery:
+     * @note May be expanded as required.
+     */
+    struct BatteryData {
+        Units::QuantityD<Units::Volts>   voltage = Units::ZERO;
+        Units::QuantityD<Units::Percent> percent = Units::ZERO;
+        // TODO: Add more fields as needed, e.g. current, temperature, etc.
+
+        // Simple Flags:
+        bool is_charging = false;
+        bool is_low = false;
+    };
 }
 }
 }
