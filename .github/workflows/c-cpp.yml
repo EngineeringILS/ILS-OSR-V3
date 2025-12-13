@@ -1,0 +1,35 @@
+name: Common Lib CI
+
+on:
+  push:
+    paths:
+      - 'common/**' # Only run if changes happen in /common
+  pull_request:
+    paths:
+      - 'common/**'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Tell all steps to run inside the 'common' directory
+    defaults:
+      run:
+        working-directory: ./common
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      # -B build: Create a build folder
+      # -DBUILD_TESTING=ON: Activate the testing block in your CMakeLists
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+    - name: Build
+      # Build the project inside the 'build' folder
+      run: cmake --build build
+
+    - name: Test
+      # Run the tests defined by add_test()
+      # --output-on-failure: Prints the error log if a test fails
+      run: ctest --test-dir build --output-on-failure
