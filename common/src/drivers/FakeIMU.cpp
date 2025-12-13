@@ -7,7 +7,7 @@ namespace Common {
 namespace Sensors{
 
 FakeIMU::FakeIMU(HostController host) :
-    SensorInterface(InterfaceType::OTHER, host),
+    SensorInterface(Protocols::InterfaceType::OTHER, host),
     _readCounter(0)
     {}
 
