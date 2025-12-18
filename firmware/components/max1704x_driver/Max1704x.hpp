@@ -2,11 +2,16 @@
 #include <common/drivers/DataTypes.hpp>
 #include <common/drivers/Units.hpp>
 #include <common/protocols/InterfaceProtocols.hpp>
+#include <i2c_driver.hpp>
 #include <max1704x.h>
 
 namespace Lunabotics {
-namespace Common {
-namespace Sensors {
+namespace ESP32 {
+namespace Drivers {
+
+using namespace Lunabotics::Common;
+using namespace Lunabotics::Common::Sensors;
+
 
 /**
  * @brief A wrapper class that aligns the Max1704x driver with Lunabotics standards as a SensorInterface.
@@ -25,7 +30,7 @@ public:
      * @param host The processor this driver is running on.
      * @param I2C_Config The platform specific protocols::I2CConfig for I2C operation.
      */
-    explicit Max1704x(HostController host, Protocols::I2CConfig I2C_Config) : SensorInterface(Protocols::InterfaceType::I2C, host), _I2CConfig(I2C_Config) {}
+    explicit Max1704x(const uint8_t& addr, I2CBus* I2C_Config) : SensorInterface(Protocols::InterfaceType::I2C, SensorInterface::HostController::ESP32), address_(addr), I2Cbus_(I2C_Config) {}
 
     /**
      * @brief Virtual Destructor.
@@ -51,8 +56,10 @@ public:
     bool read();
     
     // Sensor Specific Public Functions:
-    void getData(DataTypes::BatteryData& data) const;
+    
 
+    void getData(DataTypes::BatteryData& data) const;
+     
 private:
     // Private Member Variables:
 
@@ -62,10 +69,22 @@ private:
     DataTypes::BatteryData _batteryData;
 
     /**
+     * @brief I2C Address:
+     */
+    uint8_t address_;
+
+    /**
      * @brief Internal storage for the I2C Configuration.
      */
-    Protocols::I2CConfig _I2CConfig;
+    I2CBus* I2Cbus_;
 
+    /**
+     * @brief the Max1704x Device Descriptor.
+     */
+    max1704x_t max1704x_;
+
+    // Private Member Functions:
+    esp_err_t max1704x_init_desc_mod();
 };
 } // namespace Sensors
 } // namespace Common

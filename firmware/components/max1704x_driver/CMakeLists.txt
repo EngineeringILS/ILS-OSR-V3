@@ -7,4 +7,5 @@ idf_component_register(
              driver         
              freertos      
              max1704x 
+             i2c_driver
 )
