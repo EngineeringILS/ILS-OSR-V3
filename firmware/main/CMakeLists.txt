@@ -5,5 +5,7 @@ idf_component_register(
     REQUIRES common 
              freertos 
              SerialIO    
+             max1704x_driver
+             i2c_driver
                # Automatically Include and Register the Common Library as a Requirement
 )
