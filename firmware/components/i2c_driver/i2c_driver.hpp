@@ -33,7 +33,7 @@ public:
             // Port cannot be found:
             err = ESP_ERR_NOT_FOUND;
             
-        } else {
+        } else if (!initialized_) {
             i2c_master_bus_config_t i2c_bus_config = {
                 .i2c_port = port_.i2c_port,  // select a free I2C port automatically
                 .sda_io_num = static_cast<gpio_num_t>(port_.sda_pin),
