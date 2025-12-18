@@ -2,8 +2,11 @@
 #include <common/drivers/FakeIMU.hpp>
 #include <SerialIO.hpp>
 #include <i2c_driver.hpp>
+#include <i2c_tools.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
+#include <stdexcept>
+
 
 using namespace Lunabotics::Common::Sensors;
 using namespace Lunabotics::Common::DataTypes;
@@ -12,12 +15,7 @@ using namespace Lunabotics::Common;
 using SI = SensorInterface;
 #define TFT_I2C_POWER_GPIO 21
 
-// Helper lambda or function to format hex cleanly
-auto to_hex = [](int value) -> std::string {
-    char buffer[5];
-    snprintf(buffer, sizeof(buffer), "%02x", value);
-    return std::string(buffer);
-};
+
 
 extern "C" {
     void app_main(void);
@@ -45,54 +43,41 @@ void app_main(void) {
     Terminal.serial_out("[TEST START] System Ready. \n");
     
     while (true) {
-        Terminal.serial_out("Test I/O > Enter 'check' for I2C status, or 'scan' for I2C scan,  or 'q' to quit: \n");
+        Terminal.serial_out("Test I/O > Enter 'check' for I2C status, or 'scan' for I2C scan, 'dump' for I2C dump,  or 'q' to quit: \n");
         ioMsg = Terminal.serial_in("Input: ");
 
         if (ioMsg == "check") {
-            if (i2cBus0.initialized_) {
-                Terminal.serial_out("I2C Bus 0 Status: [OK] (Initialized)\n");
-            } else {
-                // If failed, print the error code for debugging
-                std::string errName = esp_err_to_name(i2cBus0.err);
-                Terminal.serial_out("I2C Bus 0 Status: [FAIL] Error Code: " + errName + "\n");
-            }
+            i2c_status(Terminal, i2cBus0);
         }
         else if (ioMsg == "scan") {
-            if (i2cBus0.initialized_) {
-                Terminal.serial_out("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
-                uint8_t address;
-                // Iterate through all 128 possible addresses
-                for (int i = 0; i < 128; i += 16) {
-                    // Fix: Use the helper to print the Row Header (00:, 10:, etc.)
-                    Terminal.serial_out(to_hex(i) + ": ");
+            i2c_scan(Terminal, i2cBus0);
+        }
+        else if (ioMsg.size() >= 4 && ioMsg.substr(0, 4) == "dump") {
+            // Default to MAX17048
+            uint8_t targetAddr = 0x36;
 
-                    for (int j = 0; j < 16; j++) {
-                        // fflush is usually for stdout/printf, might not affect your Terminal class, 
-                        // but harmless to keep if you are using underlying stdio.
-                        fflush(stdout); 
-                        
-                        address = i + j;
+            if (ioMsg.size() > 5) {
+                std::string arg = ioMsg.substr(5);
+                
+                // --- REPLACEMENT LOGIC START ---
+                char* endPtr;
+                // strtoul(string, end_pointer, base 0 for auto-detect)
+                unsigned long val = strtoul(arg.c_str(), &endPtr, 0);
 
-                        // Skip reserved addresses (0x00-0x02, 0x78-0x7F) if you want to be strict,
-                        // but probing them is usually fine.
-                        esp_err_t ret = i2c_master_probe(i2cBus0.getI2CBus(), address, 50);
-
-                        if (ret == ESP_OK) {
-                            // Fix: Print the address in Hex, not Decimal
-                            Terminal.serial_out(to_hex(address) + " ");
-                        } else if (ret == ESP_ERR_TIMEOUT) {
-                            Terminal.serial_out("UU "); // Timeout is usually just NACK ("--")
-                        } else {
-                            Terminal.serial_out("-- ");
-                        }
-                    }
-                    Terminal.serial_out("\r\n");
+                // check if conversion failed:
+                // 1. endPtr == arg.c_str() -> No digits found
+                // 2. *endPtr != '\0'       -> Junk characters at end (e.g. "0x36xyz")
+                // 3. val > 255             -> Address too big for I2C
+                if (endPtr == arg.c_str() || *endPtr != '\0' || val > 255) {
+                    Terminal.serial_out("Invalid address. Usage: dump <hex|dec>\n");
+                    return; // Changed from continue if inside a void function
                 }
+                
+                targetAddr = static_cast<uint8_t>(val);
+                // --- REPLACEMENT LOGIC END ---
             }
-            else {
-                std::string errName = esp_err_to_name(i2cBus0.err);
-                Terminal.serial_out("I2C Bus 0 Status: [FAIL] Error Code: " + errName + "\n");
-            }
+
+            i2c_dump(Terminal, i2cBus0, targetAddr, 1);
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");

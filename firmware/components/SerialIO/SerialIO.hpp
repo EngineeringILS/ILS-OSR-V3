@@ -3,6 +3,9 @@
 #include "driver/usb_serial_jtag.h"
 #include "freertos/FreeRTOS.h"
 
+#ifndef SERIAL_IO_HPP
+#define SERIAL_IO_HPP
+
 /**
  * TODO: Migrate SerialIO to SerialInterface:
  */
@@ -49,3 +52,5 @@ private:
     bool is_initialized_ = false; 
     usb_serial_jtag_driver_config_t usb_config_;
 };
+
+#endif
