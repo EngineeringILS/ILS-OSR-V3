@@ -4,7 +4,15 @@
 auto to_hex = [](int value) -> std::string {
     char buffer[5];
     snprintf(buffer, sizeof(buffer), "%02x", value);
-    return std::string(buffer);
+    std::string hex = std::string(buffer);
+    return hex;
+};
+
+auto to_0x_hex = [](int value) -> std::string {
+    char buffer[5];
+    snprintf(buffer, sizeof(buffer), "%02x", value);
+    std::string hex = "0x" + std::string(buffer);
+    return hex;
 };
 
 void i2c_status(SerialIO &terminal, I2CBus &bus) {
@@ -15,6 +23,36 @@ void i2c_status(SerialIO &terminal, I2CBus &bus) {
                 std::string errName = esp_err_to_name(bus.getErr());
                 terminal.serial_out("I2C Bus 0 Status: [FAIL] Error Code: " + errName + "\n");
             }
+}
+
+void i2c_device_status(SerialIO &terminal, I2CDevice &device) {
+    // 1. Safe Bus Port Retrieval
+    std::string busPort = "?";
+    if (device.getBus() != nullptr) {
+        busPort = std::to_string(device.getBus()->getI2CPort().i2c_port);
+    }
+
+    if (device.isInitialized()) {
+        terminal.serial_out("I2C Bus " + busPort + " Device: " + to_hex(device.getAddress()) + " Status: [OK] (Initialized)\n");
+    } else {
+        std::string errName = esp_err_to_name(device.getErr());
+        terminal.serial_out("I2C Bus " + busPort + " Device: " + to_hex(device.getAddress()) + " Status: [FAIL] Error Code: " +  errName + "\n");
+    }   
+}
+
+void i2c_device_read(SerialIO &terminal, I2CDevice &device, const uint8_t* addresses, const uint16_t num_addresses) {
+    
+    // 2. Optimization: No array needed. Just 2 bytes of stack memory.
+    uint16_t temp_data = 0; 
+
+    for (size_t i = 0; i < num_addresses; i++) {
+        if (device.readRegister(addresses[i], temp_data)) {
+            // 3. Fix: Added "\r\n" for clean newlines
+            terminal.serial_out("Register: " + to_hex(addresses[i]) + " : " + to_0x_hex(temp_data) + "\r\n");
+        } else {
+            terminal.serial_out("Register: " + to_hex(addresses[i]) + " : 0xFF [ERR]\r\n");
+        }
+    }
 }
 
 void i2c_scan(SerialIO &terminal, I2CBus &bus) {
@@ -56,6 +94,8 @@ void i2c_scan(SerialIO &terminal, I2CBus &bus) {
     return;
 
 }
+
+
 
 void i2c_dump(SerialIO &terminal, I2CBus &bus, uint8_t chip_address, int size) {
     if (!bus.isInitialized()) {

@@ -31,8 +31,11 @@ void app_main(void) {
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
     board.I2C(0, i2cPort0);
 
-    // Attempt to initialize the driver
+    // Attempt to initialize the driver:
     Drivers::I2CBus i2cBus0(i2cPort0);
+    
+    // Attempt to initialize the max1704x:
+    Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
 
     // 2. Setup Terminal
     SerialIO Terminal;
@@ -43,11 +46,13 @@ void app_main(void) {
     Terminal.serial_out("[TEST START] System Ready. \n");
     
     while (true) {
-        Terminal.serial_out("Test I/O > Enter 'check' for I2C status, or 'scan' for I2C scan, 'dump' for I2C dump,  or 'q' to quit: \n");
+        
+        Terminal.serial_out("Test I/O > 'check', 'scan', 'dump', 'checkread', or 'q' to quit: \n");
         ioMsg = Terminal.serial_in("Input: ");
 
         if (ioMsg == "check") {
             i2c_status(Terminal, i2cBus0);
+            i2c_device_status(Terminal, max1704x);
         }
         else if (ioMsg == "scan") {
             i2c_scan(Terminal, i2cBus0);
@@ -78,6 +83,10 @@ void app_main(void) {
             }
 
             i2c_dump(Terminal, i2cBus0, targetAddr, 1);
+        } else if (ioMsg == "checkread") {
+            uint8_t addresses[16] = {0x02, 0x04, 0x06, 0x08, 0x0C, 0x14, 0x16, 0x18, 0x1A};
+            uint8_t numAddresses = 9;
+            i2c_device_read(Terminal, max1704x, addresses, numAddresses);
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");
