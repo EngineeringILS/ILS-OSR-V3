@@ -3,12 +3,21 @@
 #include <SerialIO.hpp>
 #include <i2c_driver.hpp>
 #include <Platforms.hpp>
+#include <driver/gpio.h>
 
 using namespace Lunabotics::Common::Sensors;
 using namespace Lunabotics::Common::DataTypes;
 using namespace Lunabotics::ESP32;
 using namespace Lunabotics::Common;
 using SI = SensorInterface;
+#define TFT_I2C_POWER_GPIO 21
+
+// Helper lambda or function to format hex cleanly
+auto to_hex = [](int value) -> std::string {
+    char buffer[5];
+    snprintf(buffer, sizeof(buffer), "%02x", value);
+    return std::string(buffer);
+};
 
 extern "C" {
     void app_main(void);
@@ -17,6 +26,8 @@ extern "C" {
 void app_main(void) {
     // 1. Setup Hardware
     Boards::FeatherS3TFT board;
+    gpio_set_direction(gpio_num_t(21), GPIO_MODE_OUTPUT);
+    gpio_set_level(gpio_num_t(21), 1);
 
     Protocols::I2CPort i2cPort0;
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
@@ -34,7 +45,7 @@ void app_main(void) {
     Terminal.serial_out("[TEST START] System Ready. \n");
     
     while (true) {
-        Terminal.serial_out("Test I/O > Enter 'check' for I2C status or 'q' to quit: \n");
+        Terminal.serial_out("Test I/O > Enter 'check' for I2C status, or 'scan' for I2C scan,  or 'q' to quit: \n");
         ioMsg = Terminal.serial_in("Input: ");
 
         if (ioMsg == "check") {
@@ -42,6 +53,43 @@ void app_main(void) {
                 Terminal.serial_out("I2C Bus 0 Status: [OK] (Initialized)\n");
             } else {
                 // If failed, print the error code for debugging
+                std::string errName = esp_err_to_name(i2cBus0.err);
+                Terminal.serial_out("I2C Bus 0 Status: [FAIL] Error Code: " + errName + "\n");
+            }
+        }
+        else if (ioMsg == "scan") {
+            if (i2cBus0.initialized_) {
+                Terminal.serial_out("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
+                uint8_t address;
+                // Iterate through all 128 possible addresses
+                for (int i = 0; i < 128; i += 16) {
+                    // Fix: Use the helper to print the Row Header (00:, 10:, etc.)
+                    Terminal.serial_out(to_hex(i) + ": ");
+
+                    for (int j = 0; j < 16; j++) {
+                        // fflush is usually for stdout/printf, might not affect your Terminal class, 
+                        // but harmless to keep if you are using underlying stdio.
+                        fflush(stdout); 
+                        
+                        address = i + j;
+
+                        // Skip reserved addresses (0x00-0x02, 0x78-0x7F) if you want to be strict,
+                        // but probing them is usually fine.
+                        esp_err_t ret = i2c_master_probe(i2cBus0.getI2CBus(), address, 50);
+
+                        if (ret == ESP_OK) {
+                            // Fix: Print the address in Hex, not Decimal
+                            Terminal.serial_out(to_hex(address) + " ");
+                        } else if (ret == ESP_ERR_TIMEOUT) {
+                            Terminal.serial_out("UU "); // Timeout is usually just NACK ("--")
+                        } else {
+                            Terminal.serial_out("-- ");
+                        }
+                    }
+                    Terminal.serial_out("\r\n");
+                }
+            }
+            else {
                 std::string errName = esp_err_to_name(i2cBus0.err);
                 Terminal.serial_out("I2C Bus 0 Status: [FAIL] Error Code: " + errName + "\n");
             }

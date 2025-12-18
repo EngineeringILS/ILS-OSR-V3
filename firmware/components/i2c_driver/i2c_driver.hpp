@@ -53,6 +53,10 @@ public:
     return initialized_;
     }
 
+    i2c_master_bus_handle_t getI2CBus() {
+        return bus_handle_;
+    }
+
     esp_err_t err;
     bool initialized_ = false;
 private:
