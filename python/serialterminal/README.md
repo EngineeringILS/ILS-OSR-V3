@@ -1,0 +1,2 @@
+### Basic MiniTerm for SerialIO Test on Windows
+- This program/library defines test methods to test ESP32 Serial Functionality in the Windows Development Environment using `miniterm` and `pyserial` to simulate a terminal connection to the ESP32's JTAG interface. This is used to test the functionality of the `firmware` project during hardware deployment.
