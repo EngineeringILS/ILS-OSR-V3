@@ -1,0 +1,3 @@
+common/include/utils/au/** linguist-vendored linguist-generated
+tools/i2c_tools/** linguist-vendored linguist-generated
+tools/dearpygui/** linguist-vendored linguist-generated
