@@ -98,7 +98,6 @@ public:
      * @param bus A pointer to the I2CBus this sensor will operate on.
      * @param sclFreq The desired SCL frequency for the sensor, must be less than the bus frequency.
      */
-
     explicit I2CDevice(const uint8_t &address, I2CBus* bus,  const uint32_t &sclFreq = 100000) : bus_(bus), address_(address), device_scl_freq_(sclFreq)  {
         init();
     }
@@ -106,7 +105,7 @@ public:
     /**
      * @brief Destroy the existing I2CDevice object.
      */
-    ~I2CDevice() {
+    virtual ~I2CDevice() {
         if (device_handle_ != nullptr) {
             i2c_master_bus_rm_device(device_handle_);
         }
@@ -214,6 +213,30 @@ public:
         }
     }
 
+    /**
+     * @brief Reads two bytes of data from a specific I2C Device's register.
+     * @param reg_addr The hex address of the register.
+     * @param data The 2 data bytes (signed) to be written to.
+     * @returns True if the read operation returns ESP_OK, false if an error occurs (check getRXerr() for more info).
+     */
+    bool readRegister(const uint8_t& reg_addr, int16_t &data) {
+        uint8_t read_buf[2];
+        if (!device_handle_ || !initialized_) {
+            return false;
+        }
+        reg_rx_err_ = i2c_master_transmit_receive(device_handle_, &reg_addr,  1, read_buf, 2, -1);
+        if (reg_rx_err_ == ESP_OK) {
+            // read from the buffer into data.
+            uint16_t raw_data = (read_buf[0] << 8) | read_buf[1];
+            data = static_cast<int16_t>(raw_data);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    
+    
     /**
      * @brief Writes a raw buffer to the device (useful for commands without registers).
      */
