@@ -1,42 +1,88 @@
 #include "Max1704x.hpp"
 
-// namespace Lunabotics {
-// namespace ESP32 {
-// namespace Drivers {
+namespace Lunabotics {
+namespace ESP32 {
+namespace Drivers {
+
+bool Max1704x::init() {
+    // I2CDevice already checks the bus in its constructor and init, no need to check again here.
+    if (!I2CDevice::init()) {
+        // Failure to initialize --> likely unrecoverable hardware error since this chip is on platform, check I2C Bus & config.
+        // The exact Error would need to be checked by invoking the I2CDevice getErr() method.
+        _State = SensorState::FAILED;
+        return false;
+    }
+    
+    uint16_t version;
+    // Failure to read from the register, likely a deeper issue than initialization.
+    // Refer to the above getErr() method.
+    if (!readRegister(reg(DataRegisters::VERSION), version)) {
+        _State = SensorState::FAILED;
+        return false;
+    }
+
+    // If initialization succeeded, and reading suceeded, then the sensor must be connected:
+    _State = SensorState::CONNECTED;
+    return true;
+}
+
+bool Max1704x::read() {
+    // Connected State --> Good Read.
+    // Error State --> Last read may have failed, but potentially not catastrophic, if the sensor is truly disconnected, the readRegister should just return false.
+    if (!(_State == SensorState::CONNECTED)) {
+        return false;
+    }
+
+    uint16_t rawVoltageData, rawSocData;
+    int16_t rawChargeRate;
+    // Read all regs:
+    if (!readRegister(reg(DataRegisters::VCELL), rawVoltageData)) {
+        // Failure to read --> ERROR.
+        _State = SensorState::ERROR;
+        return false;
+    } 
+
+    if (!readRegister(reg(DataRegisters::SOC), rawSocData)) {
+        // Failure to read --> ERROR.
+        _State = SensorState::ERROR;
+        return false;
+    }
+
+    if (!readRegister(reg(DataRegisters::CRATE), rawChargeRate)) {
+        // Failure to read --> ERROR.
+        _State = SensorState::ERROR;
+        return false;
+    }
+
+    // Run all conversions:
+    double voltage = static_cast<double>((rawVoltageData >> 4) * 0.00125f);
+    double percentage = static_cast<double>(rawSocData) / 256.0;
+    double chargeRate = static_cast<double>(rawChargeRate) * 0.208f;
+
+    // Populate battery_data_:
+    battery_data_.voltage = Units::volts(voltage);
+    battery_data_.percent = Units::percent(percentage);
+    
+    if (percentage < 40) {
+        battery_data_.is_low = true;
+    } else {
+        battery_data_.is_low = false;
+    }
+
+    if (chargeRate > 0) {
+        battery_data_.is_charging = true;
+    } else {
+        battery_data_.is_charging = false;
+    }
+    return true;
+}
+
+void Max1704x::getData(DataTypes::BatteryData& data) const {
+    data = battery_data_;
+}
 
 
-// esp_err_t Max1704x::max1704x_init_desc_mod() {
-//     max1704x_.i2c_dev.port = static_cast<i2c_port_t>(I2Cbus_->getI2CPort().i2c_port);
-//     max1704x_.i2c_dev.addr = address_;
-//     max1704x_.i2c_dev.cfg.sda_io_num = static_cast<gpio_num_t>(I2Cbus_->getI2CPort().sda_pin);
-//     max1704x_.i2c_dev.cfg.scl_io_num = static_cast<gpio_num_t>(I2Cbus_->getI2CPort().scl_pin);
-//     max1704x_.i2c_dev.cfg.master.clk_speed = I2Cbus_->getI2CPort().frequency;
-//     return i2c_dev_create_mutex(&max1704x_.i2c_dev);
-// }
 
-// bool Max1704x::init() {
-//     if
-//     const Protocols::I2CPort i2c_bus_port = I2Cbus_->getI2CPort();
-//     gpio_num_t sda_pin = static_cast<gpio_num_t>(i2c_bus_port.sda_pin);
-//     gpio_num_t scl_pin = static_cast<gpio_num_t>(i2c_bus_port.scl_pin);
-//     esp_err_t err = max1704x_init_desc(
-//         // device descriptor,
-//         // i2c port number,
-//         // sda GPIO
-//         // cl GPIO
-//     );
-
-//     if (initStatus != ESP_OK) {
-//         // TODO: Need to qualify the error to properly determine what kind of error and respective state change.
-//         // Read ESP32 Docs for ESP_ERR_T status codes.
-//         _State = SensorState::ERROR;
-//         return false;
-//     } else {
-//         _State = SensorState::CONNECTED;
-//     }
-// }
-
-
-// } // namespace Sensors
-// } // namespace Common
-// } // namespace Lunabotics
+} // namespace Sensors
+} // namespace Common
+} // namespace Lunabotics

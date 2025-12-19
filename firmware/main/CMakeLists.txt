@@ -6,6 +6,7 @@ idf_component_register(
              freertos 
              SerialIO    
              max1704x_driver
+             max1704x_test
              i2c_driver
              i2c_tools
                # Automatically Include and Register the Common Library as a Requirement

@@ -3,6 +3,8 @@
 #include <SerialIO.hpp>
 #include <i2c_driver.hpp>
 #include <i2c_tools.hpp>
+#include <Max1704x_test.hpp>
+#include <Max1704x.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
 #include <stdexcept>
@@ -35,8 +37,9 @@ void app_main(void) {
     Drivers::I2CBus i2cBus0(i2cPort0);
     
     // Attempt to initialize the max1704x:
-    Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
-
+    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
+    Max1704x max1704x(0x36,&i2cBus0);
+    max1704x.init();
     // 2. Setup Terminal
     SerialIO Terminal;
     Terminal.init();
@@ -47,7 +50,7 @@ void app_main(void) {
     
     while (true) {
         
-        Terminal.serial_out("Test I/O > 'check', 'scan', 'dump', 'checkread', or 'q' to quit: \n");
+        Terminal.serial_out("Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', or 'q' to quit: \n");
         ioMsg = Terminal.serial_in("Input: ");
 
         if (ioMsg == "check") {
@@ -87,6 +90,8 @@ void app_main(void) {
             uint8_t addresses[16] = {0x02, 0x04, 0x06, 0x08, 0x0C, 0x14, 0x16, 0x18, 0x1A};
             uint8_t numAddresses = 9;
             i2c_device_read(Terminal, max1704x, addresses, numAddresses);
+        } else if (ioMsg == "read") {
+            max1704x_test_data(Terminal, max1704x);
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");
