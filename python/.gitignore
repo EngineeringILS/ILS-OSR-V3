@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.code-workspace
 
 # --- Virtual Environments ---
 # It's common to name envs 'venv', 'env', or '.venv'
