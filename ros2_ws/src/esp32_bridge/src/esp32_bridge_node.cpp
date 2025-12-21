@@ -1,4 +1,6 @@
 #include <cstdio>
+#include <rclcpp/rclcpp.hpp>
+#include <ros2_serial_driver/ros2_serial_driver.hpp>
 
 int main(int argc, char ** argv)
 {

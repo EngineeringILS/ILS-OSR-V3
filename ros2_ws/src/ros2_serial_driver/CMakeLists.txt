@@ -12,6 +12,10 @@ find_package(ament_cmake_ros REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
+set(BUILD_ROS2 ON)
+get_filename_component(COMMON_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../common" ABSOLUTE)
+add_subdirectory(${COMMON_LIB_PATH} ${CMAKE_CURRENT_BINARY_DIR}/common_build)
+
 add_library(ros2_serial_driver src/ros2_serial_driver.cpp)
 target_compile_features(ros2_serial_driver PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 target_include_directories(ros2_serial_driver PUBLIC
@@ -21,6 +25,13 @@ target_include_directories(ros2_serial_driver PUBLIC
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
 target_compile_definitions(ros2_serial_driver PRIVATE "ROS2_SERIAL_DRIVER_BUILDING_LIBRARY")
+
+target_link_libraries(${PROJECT_NAME} 
+  PRIVATE
+  common_lib
+)
+
+
 
 install(
   DIRECTORY include/
