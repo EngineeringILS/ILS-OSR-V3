@@ -21,7 +21,15 @@ if(DEFINED IDF_TARGET)
     target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 
 # TODO: Implement ROS2 target handling (if needed).
-#if (ROS2)
+elseif (BUILD_ROS2)
+    # Create the static library
+    add_library(common_lib STATIC ${SRCS})
+    #Expose headers to the linking ROS2 Package:
+    target_include_directories(common_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+    set_property(TARGET common_lib PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+    target_compile_features(common_lib PRIVATE cxx_std_17)
 
 # Standalone Compilation:
 else()
