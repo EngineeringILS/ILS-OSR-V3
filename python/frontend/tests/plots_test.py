@@ -2,30 +2,25 @@ import dearpygui.dearpygui as dpg
 
 dpg.create_context()
 
-with dpg.window(label="Tutorial", width=400, height=400):
-    with dpg.group(horizontal=True):
-        dpg.add_button(label="fit y", callback=lambda: dpg.fit_axis_data("y_axis"))
-        dpg.add_button(label="unlock x limits", callback=lambda: dpg.set_axis_limits_auto("x_axis"))
-        dpg.add_button(label="unlock y limits", callback=lambda: dpg.set_axis_limits_auto("y_axis"))
-        dpg.add_button(label="print limits x", callback=lambda: print(dpg.get_axis_limits("x_axis")))
-        dpg.add_button(label="print limits y", callback=lambda: print(dpg.get_axis_limits("y_axis")))
+with dpg.window(label="Tutorial"):
 
-    with dpg.plot(label="Bar Series", height=-1, width=-1):
-        dpg.add_plot_legend()
+    with dpg.table(header_row=True, policy=dpg.mvTable_SizingFixedFit, row_background=True, reorderable=True,
+                   resizable=True, no_host_extendX=False, hideable=True,
+                   borders_innerV=True, delay_search=True, borders_outerV=True, borders_innerH=True,
+                   borders_outerH=True):
 
-        # create x axis
-        dpg.add_plot_axis(dpg.mvXAxis, label="Student", no_gridlines=True, tag="x_axis")
-        dpg.set_axis_limits(dpg.last_item(), 9, 33)
-        dpg.set_axis_ticks(dpg.last_item(), (("S1", 11), ("S2", 21), ("S3", 31)))
+        dpg.add_table_column(label="AAA", width_fixed=True)
+        dpg.add_table_column(label="BBB", width_fixed=True)
+        dpg.add_table_column(label="CCC", width_stretch=True, init_width_or_weight=0.0)
+        dpg.add_table_column(label="DDD", width_stretch=True, init_width_or_weight=0.0)
 
-        # create y axis
-        dpg.add_plot_axis(dpg.mvYAxis, label="Score", tag="y_axis")
-        dpg.set_axis_limits("y_axis", 0, 110)
-
-        # add series to y axis
-        dpg.add_bar_series([10, 20, 30], [100, 75, 90], label="Final Exam", weight=1, parent="y_axis")
-        dpg.add_bar_series([11, 21, 31], [83, 75, 72], label="Midterm Exam", weight=1, parent="y_axis")
-        dpg.add_bar_series([12, 22, 32], [42, 68, 23], label="Course Grade", weight=1, parent="y_axis")
+        for i in range(0, 5):
+            with dpg.table_row():
+                for j in range(0, 4):
+                    if j == 2 or j == 3:
+                        dpg.add_text(f"Stretch {i},{j}")
+                    else:
+                        dpg.add_text(f"Fixed {i}, {j}")
 
 dpg.create_viewport(title='Custom Title', width=800, height=600)
 dpg.setup_dearpygui()

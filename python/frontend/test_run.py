@@ -14,7 +14,13 @@ with dpg.window(label="Tutorial"):
     dpg.add_input_text(label="Text Input 1", source="string_value")
     dpg.add_input_text(label="Text Input 2", source="string_value", password=True)
 
+    #baterry  
     dpg.add_input_float(label="baterry input voltage", source= "baterry_V")
+
+    with dpg.plot(label="Baterry V ", height=-1, width=-1):
+        dpg.add_plot_legend()
+        dpg.add_plot_axis()
+        
 
    
         
