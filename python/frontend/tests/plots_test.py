@@ -2,27 +2,25 @@ import dearpygui.dearpygui as dpg
 
 dpg.create_context()
 
-with dpg.window(label="Tutorial"):
+def add_buttons():
+    global new_button1, new_button2
+    new_button1 = dpg.add_button(label="New Button", before="delete_button", tag="new_button1")
+    new_button2 = dpg.add_button(label="New Button 2", parent="secondary_window", tag="new_button2")
 
-    with dpg.table(header_row=True, policy=dpg.mvTable_SizingFixedFit, row_background=True, reorderable=True,
-                   resizable=True, no_host_extendX=False, hideable=True,
-                   borders_innerV=True, delay_search=True, borders_outerV=True, borders_innerH=True,
-                   borders_outerH=True):
 
-        dpg.add_table_column(label="AAA", width_fixed=True)
-        dpg.add_table_column(label="BBB", width_fixed=True)
-        dpg.add_table_column(label="CCC", width_stretch=True, init_width_or_weight=0.0)
-        dpg.add_table_column(label="DDD", width_stretch=True, init_width_or_weight=0.0)
+def delete_buttons():
+    dpg.delete_item("new_button1")
+    dpg.delete_item("new_button2")
 
-        for i in range(0, 5):
-            with dpg.table_row():
-                for j in range(0, 4):
-                    if j == 2 or j == 3:
-                        dpg.add_text(f"Stretch {i},{j}")
-                    else:
-                        dpg.add_text(f"Fixed {i}, {j}")
 
-dpg.create_viewport(title='Custom Title', width=800, height=600)
+with dpg.window(label="Tutorial", pos=(200, 200)):
+    dpg.add_button(label="Add Buttons", callback=add_buttons)
+    dpg.add_button(label="Delete Buttons", callback=delete_buttons, tag="delete_button")
+
+with dpg.window(label="Secondary Window", tag="secondary_window", pos=(100, 100)):
+    pass
+
+dpg.create_viewport(title='Custom Title', width=600, height=400)
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
