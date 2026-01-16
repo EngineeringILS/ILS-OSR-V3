@@ -17,7 +17,10 @@ class DataInput():
         raise NotImplementedError("Subclasses must implement read()")
 
     def getData(self):
-        value = str(self.readData())
+        value = self.readData()
+        if isinstance(value,float):
+            return f"{self.name}: {value:.2f} {self.unit}"
+
         return f"{self.name}: {value} {self.unit}"
     
     def label(self):
@@ -60,19 +63,63 @@ class RegolithCollected(DataInput):
 class ESP32Data(DataInput):
     def __init__(self, name):
         super().__init__(name, "ESP32")
-        self.state = "Autonomous Drive"
+        self.drivingMode = "Autonomous Drive"
+        self.currentState = "Idle"
 
-        self.tog = True
+        
+
+        self.drivingModeToggle = True
+        self.stateTogggle = 1
+
     def readData(self):
         #ADD ESP32 Logic
-        return self.state
-    def toggleState(self):
-        self.tog = not (self.tog)
-        if self.tog:
-            self.state = "Autonomous Drive"
-        else:
-            self.state = "TelepOp Drive"
 
+        return self.drivingMode , self.currentState
+    def toggleDrivingMode(self):
+        self.drivingModeToggle = not (self.drivingModeToggle)
+        if self.drivingModeToggle:
+            self.drivingMode = "Autonomous Drive"
+        else:
+            self.drivingMode = "TelepOp Drive"
+    
+    def toggleState(self):
+
+        # Add togleing state logic
+
+        # this is dummy data for testimg gui 
+        self.stateTogggle += 1
+        if self.stateTogggle > 3:
+            self.stateTogggle = 1
+        match self.stateTogggle:
+            case 1:
+                self.currentState = "Digging..."
+            case 2:
+                self.currentState= "Navigating..."
+            case 3:
+                self.currentState ="Depsositing"
+    def getData(self):
+        DRMode, state = self.readData()
+        return f"{self.name}: Driving Mode: {DRMode} , State :{state}"
+        
+class IMU (DataInput):
+    def __init__(self, name):
+        super().__init__(name, "")
+    def readData(self):
+        ## Put code to get data here
+        #DUMMY CODE GET RID AFTER
+        t = time.time() - start_time
+        np.seterr(invalid='raise')
+        try:
+            x =np.sqrt(np.sin(t)*2)
+            y =np.sqrt(np.cos(t)*2)
+            z =np.sqrt(np.tan(t)*2)
+
+            return(x,y,z)
+        except:
+            return("ERROR IMU ","ERROR IMU ","ERROR IMU ")
+    def getData(self):
+        valueX, valueY, valueZ = self.readData()
+        return f"{self.name}: {valueX} m {valueY} m {valueZ} m {self.unit}"
 
 
 
