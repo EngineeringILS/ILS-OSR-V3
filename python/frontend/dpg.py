@@ -14,6 +14,7 @@ sensors = [
     state.RegolithCollected("Regolith"),
     state.ESP32Data("State")   ,
     state.IMU("IMU")
+    
 
 ]
 
@@ -36,31 +37,28 @@ runTimeMin =0
 runTimeSec=0
 
 #image init
-Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image("/home/enrique/lunabotics-cdh-dev/python/frontend/images/64px-NASA_logo.svg.png")
-LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image("/home/enrique/lunabotics-cdh-dev/python/frontend/images/Final LOGO.png")
-#Fuction to keep desired imaged desire location
-def keepBottomRight():
-    # Get current window dimensions
-    windowWidth = dpg.get_item_width("main window")
-    windowLenght = dpg.get_item_height("main window")
-    
-    # Calc image pos
-    padding = 10
-    pos_x = windowWidth - Nasawidth- padding
-    pos_y = windowLenght - Nasaheight - padding - 20 
-    
-    dpg.set_item_pos("NASAimage", [pos_x, pos_y])
+# loads in images from path 
 
-def keepBottomLeft():
+Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image("images/64px-NASA_logo.svg.png")
+LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image("images/Final LOGO.png")
+TAMULogoW, TAMULogoH, TAMULogoC, TAMULogoD = dpg.load_image("images/TAM-MaroonBox.png")
+
+#Fuction to keep desired imaged desire location
+def keepLogoBottom():
     # Get current window dimensions
     windowWidth = dpg.get_item_width("main window")
     windowLenght = dpg.get_item_height("main window")
-    
+    Ypos = windowLenght - Nasaheight -30
+
     # Calc image pos
     padding = 10
-    pos_x = LunaLogoW//20 - padding*2
-    pos_y = windowLenght - LunaLogoH//20 - padding - 20 
-    dpg.set_item_pos("Lunaimage", [pos_x, pos_y])
+    posxNASA = windowWidth//2 - 200
+    posyNASA = windowLenght - Nasaheight - padding - 20 
+    
+    dpg.set_item_pos("logoGroup", [posxNASA, Ypos])
+
+
+
 
 
 
@@ -132,6 +130,7 @@ with dpg.value_registry():
 with dpg.texture_registry():
     dpg.add_static_texture(width=Nasawidth, height=Nasaheight, default_value=Nasadata, tag="NASA")
     dpg.add_static_texture(width=LunaLogoW, height=LunaLogoH, default_value=LunaLogoD, tag="Lunabotics")
+    dpg.add_static_texture(width=TAMULogoW, height=TAMULogoH, default_value=TAMULogoD, tag="TAMU")
 
 
     
@@ -154,7 +153,7 @@ with dpg.window(label="Robot GUI",tag = "main window",width=800, height=800,):
         
         #This (VVV) created a table here all the robot info will be display
         with dpg.group(horizontal=True):
-            with dpg.table( header_row=True, width=350):
+            with dpg.table( header_row=True, width=500):
 
                 # Makes the colum of the tables
                 dpg.add_table_column(label="Robot")
@@ -186,13 +185,18 @@ with dpg.window(label="Robot GUI",tag = "main window",width=800, height=800,):
     with dpg.collapsing_header(label="Camera POV"):
         with dpg.table(header_row=True):
             dpg.add_table_column(label="ADD CAMERA POV HERE")
-    dpg.add_image("NASA", tag ="NASAimage")
-    dpg.add_image("Lunabotics", tag = "Lunaimage", width=LunaLogoW//20,height= LunaLogoH//20)
+
+    # Creates image in the gui  
+    with dpg.group(tag="logoGroup", horizontal=True, horizontal_spacing=100):      
+        dpg.add_image("NASA", tag ="NASAimage",width=Nasawidth,height= Nasaheight)
+        dpg.add_image("TAMU",uv_min= [0.17,.2], uv_max=[.78,.8] , tag = "TAMUimage", width=TAMULogoW//15,height= TAMULogoH//15)
+        dpg.add_image("Lunabotics", tag = "Lunaimage", width=LunaLogoW//17,height= LunaLogoH//17)
+        
 
 # Callsback fuction that run in the backgroung
 with dpg.item_handler_registry(tag="window handler"):
-    dpg.add_item_resize_handler(callback=keepBottomRight)
-    dpg.add_item_resize_handler(callback=keepBottomLeft)
+    dpg.add_item_resize_handler(callback=keepLogoBottom)
+    
     
 dpg.bind_item_handler_registry("main window", "window handler")
     
@@ -203,7 +207,7 @@ dpg.bind_item_handler_registry("main window", "window handler")
 
 #DPGGUI Init
 
-dpg.create_viewport(title='Control Panel', width=800, height=800)
+dpg.create_viewport(title='TAMU SEDS LUNABOTICS CONTROL PANEL', width=800, height=800)
 dpg.set_primary_window("main window",True)
 dpg.setup_dearpygui()
 dpg.show_viewport()
