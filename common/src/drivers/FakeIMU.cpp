@@ -1,4 +1,5 @@
 #include <common/drivers/FakeIMU.hpp>
+#include <common/protocols/InterfaceProtocols.hpp>
 #define _USE_MATH_DEFINES
 #include <cmath>
 

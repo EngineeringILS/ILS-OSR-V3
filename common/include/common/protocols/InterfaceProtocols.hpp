@@ -5,15 +5,6 @@
 
 namespace Lunabotics {
 namespace Common {
-
-/**
- * @brief Contains all the bus protocols used in the CDH subsystem (Primarily the C++ portion).
- * 
- * @note Currently includes support for the following:
- * - Interface Types (Enum Class)
- * - Interface Structs (I2C, SPI)
- * 
- */
 namespace Protocols {
 
     /**
@@ -50,6 +41,17 @@ namespace Protocols {
     // Unit Library avoided, because fundamentally, units add a layer of complexity that is not needed for struct.
     
     /**
+     * @brief Generic I2C Port:
+     */
+    struct I2CPort {
+        uint16_t sda_pin;  // Data Pin  (SDA, platform specific)
+        uint16_t scl_pin;  // Clock Pin (SCL, platform specific)
+        uint16_t i2c_port; // I2C Port Number (platform specific)
+        uint32_t frequency; // (Hz)
+        bool exists = false; // Flag to avoid initialization of nonexistent port.
+    };
+
+    /**
      * @brief Generic SPI Configuration:
     */
    struct SPIConfig {
@@ -61,8 +63,8 @@ namespace Protocols {
    };
     // Unit Library avoided, because fundamentally, units add a layer of complexity that is not needed for struct.
 
-} // namespace Protocols
-} // namespace Common
-} // namespace Lunabotics
+}
+}
+}
 
 #endif

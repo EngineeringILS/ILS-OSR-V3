@@ -22,8 +22,11 @@ public:
         INITIALIZED,   // init() called, but comms not confirmed
         CONNECTED,     // Comms established, ready to read
         DISCONNECTED,  // Communication lost
+        ERROR,         // Some recoverable hardware error
         FAILED         // A hardware or unrecoverable error
     };
+
+    // InterfaceType migrated to InterfaceProtocols.hpp
 
     /**
      * @brief Defines which processor is directly handling the sensor driver.
