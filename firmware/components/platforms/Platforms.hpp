@@ -76,6 +76,31 @@ private:
     };
 };
 
+class FeatherS3RevTFT : public Board {
+public:
+    FeatherS3RevTFT() : Board(Manufacturer::Adafruit) {}
+
+    /**
+     * @brief I2C Implementation for the FeatherS3TFT board. This board only supports one onboard I2C Port.
+     */
+    bool I2C(size_t portNumber, Protocols::I2CPort &port) override {
+        if (portNumber == 0) {
+            port = I2C_Port_0;
+            return true;
+        } else {
+            return false;
+        }
+    }
+private:
+    static constexpr Protocols::I2CPort I2C_Port_0{
+        .sda_pin = 3,
+        .scl_pin = 4,
+        .i2c_port = 0,
+        .frequency = 100000,
+        .exists = true
+    };
+};
+
 }
 }
 }
