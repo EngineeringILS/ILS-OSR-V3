@@ -13,7 +13,7 @@ namespace Units {
     using Acceleration = decltype(meters / squared(second))::Unit;
     using Velocity     = decltype(meters / second)::Unit;
     using Position     = decltype(meters):: Unit;
-
+    
     // Static Base Factors:
     /**
      * @brief Defines several conversion factors for Gravity, these are especially useful as the units, Units::Acceleration, are inherited through multiplication.
