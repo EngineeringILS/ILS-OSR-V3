@@ -39,9 +39,9 @@ runTimeSec=0
 #image init
 # loads in images from path 
 
-Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image("images/64px-NASA_logo.svg.png")
-LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image("images/Final LOGO.png")
-TAMULogoW, TAMULogoH, TAMULogoC, TAMULogoD = dpg.load_image("images/TAM-MaroonBox.png")
+Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image("python/frontend/images/64px-NASA_logo.svg.png")
+LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image("python/frontend/images/Final LOGO.png")
+TAMULogoW, TAMULogoH, TAMULogoC, TAMULogoD = dpg.load_image("python/frontend/images/TAM-MaroonBox.png")
 
 #Fuction to keep desired imaged desire location
 def keepLogoBottom():
