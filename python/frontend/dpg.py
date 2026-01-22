@@ -2,6 +2,7 @@ import dearpygui.dearpygui as dpg
 import state_manager as state
 import time
 import controller_input as con
+import os
 ## Run Frontend Code Here, asynchronously call in data types from state_manager.py to read and display data.
 dpg.create_context()
 
@@ -38,10 +39,10 @@ runTimeSec=0
 
 #image init
 # loads in images from path 
-
-Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image("images/64px-NASA_logo.svg.png")
-LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image("images/Final LOGO.png")
-TAMULogoW, TAMULogoH, TAMULogoC, TAMULogoD = dpg.load_image("images/TAM-MaroonBox.png")
+script_directory = os.path.dirname(__file__) 
+Nasawidth, Nasaheight, Nasachannels, Nasadata = dpg.load_image(script_directory+"/images/64px-NASA_logo.svg.png")
+LunaLogoW, LunaLogoH, LunaLogoC, LunaLogoD = dpg.load_image(script_directory+"/images/Final LOGO.png")
+TAMULogoW, TAMULogoH, TAMULogoC, TAMULogoD = dpg.load_image(script_directory+"/images/TAM-MaroonBox.png")
 
 #Fuction to keep desired imaged desire location
 def keepLogoBottom():
