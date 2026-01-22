@@ -124,3 +124,18 @@ class IMU (DataInput):
 
 
 
+class Encoder(DataInput ):
+    def __init__(self, name, Pin):
+        super().__init__(name, "")
+        self.Pin = Pin
+    def readData(self):
+        # Add Encoder collection here
+
+        #dummy data for now
+        t = time.time() - start_time
+        np.seterr(invalid='raise')
+        try:
+            encoder =np.sqrt(np.sin(t)*10* self.Pin)
+            return(encoder)
+        except:
+            return("ERROR Reading Encoder")

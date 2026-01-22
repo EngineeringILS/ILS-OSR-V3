@@ -14,7 +14,9 @@ sensors = [
     state.BaterryVoltage("Baterry Voltage"),  
     state.RegolithCollected("Regolith"),
     state.ESP32Data("State")   ,
-    state.IMU("IMU")
+    state.IMU("IMU"),
+    state.Encoder("Right Wheel Encoder", 1),
+    state.Encoder("Left Wheel Encoder",2)
     
 
 ]
