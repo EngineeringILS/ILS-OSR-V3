@@ -27,11 +27,11 @@ class DataInput():
         return self.name
 
 """ Represents the derived "data input" class which handles different types of data. """
-class BaterryVoltage(DataInput):
+class BatteryVoltage(DataInput):
     def __init__(self,name):
         super().__init__(name, "V")
     def readData(self):
-        #Add logic to read baterry voltage here
+        #Add logic to read Battery voltage here
 
         #dummy data for now
         t = time.time() - start_time

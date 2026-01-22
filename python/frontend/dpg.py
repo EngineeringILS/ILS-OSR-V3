@@ -10,7 +10,7 @@ dpg.create_context()
 
 # List of sensors, Add sensor here then it will display on gui
 sensors = [
-    state.BaterryVoltage("Baterry Voltage"),  
+    state.BatteryVoltage("Battery Voltage"),  
     state.RegolithCollected("Regolith"),
     state.ESP32Data("State")   ,
     state.IMU("IMU")
@@ -20,7 +20,7 @@ sensors = [
 
 #Init varibles for gui
 controller = con.controller()
-buttnames = controller.input_name()
+buttonNames = controller.input_name()
 driverMode  = 1
 
 global startTime 
@@ -121,7 +121,7 @@ def skipState():
 with dpg.value_registry():
     for s in sensors:
         dpg.add_string_value(tag=s.label(),default_value="")
-    for n in  (buttnames):
+    for n in  (buttonNames):
         dpg.add_string_value(tag=n,default_value="0.0")
     
     dpg.add_string_value(tag="runTime", default_value= ("00:00"))
@@ -170,7 +170,7 @@ with dpg.window(label="Robot GUI",tag = "main window",width=800, height=800,):
             with dpg.table(header_row=True,width=350):
                 dpg.add_table_column(label="Controller")
 
-                for  n in buttnames:
+                for  n in buttonNames:
                     with dpg.table_row():
                         dpg.add_text(source=n)
 
@@ -221,8 +221,8 @@ while dpg.is_dearpygui_running():
     
     #set dpg values for controller inputs
     controllerInputs = controller.get_controller_data()
-    for i, n in enumerate(buttnames):
-        dpg.set_value(str(n),f"{buttnames[i]}: {controllerInputs[i]}")
+    for i, n in enumerate(buttonNames):
+        dpg.set_value(str(n),f"{buttonNames[i]}: {controllerInputs[i]}")
     
     #set dpg values for run time
     if timerBool:
