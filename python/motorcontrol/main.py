@@ -8,6 +8,6 @@ from config import serial_port, baud_rate, controller_address
 def main():
     roboclaw = Roboclaw(serial_port, baud_rate)
     methods.roboclaw_setup(roboclaw=roboclaw, serial_port=serial_port, baud_rate=baud_rate, controller_address=controller_address)
-
+    methods.roboclaw_movement_loop(roboclaw=roboclaw, speed=0.5, controller_address=controller_address, debug=True)
 if __name__ == "__main__":
     main()
