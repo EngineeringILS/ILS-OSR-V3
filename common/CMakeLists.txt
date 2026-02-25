@@ -21,13 +21,21 @@ if(DEFINED IDF_TARGET)
     target_compile_features(${COMPONENT_LIB} PRIVATE cxx_std_17)
 
 # TODO: Implement ROS2 target handling (if needed).
-#if (ROS2)
+elseif (BUILD_ROS2)
+    # Create the static library
+    add_library(common_lib STATIC ${SRCS})
+    #Expose headers to the linking ROS2 Package:
+    target_include_directories(common_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+    set_property(TARGET common_lib PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+    target_compile_features(common_lib PRIVATE cxx_std_17)
 
 # Standalone Compilation:
 else()
     cmake_minimum_required(VERSION 3.16)
     project(lunabotics_common CXX)
-    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     add_library(common_lib STATIC ${SRCS})
     target_include_directories(common_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

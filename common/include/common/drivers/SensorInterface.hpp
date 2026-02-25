@@ -1,8 +1,8 @@
-
 #ifndef LUNABOTICS_SENSORINTERFACE_HPP_
 #define LUNABOTICS_SENSORINTERFACE_HPP_
 
 #include <cstdint>
+#include <common/protocols/InterfaceProtocols.hpp>
 
 namespace Lunabotics {
 namespace Common {
@@ -22,20 +22,11 @@ public:
         INITIALIZED,   // init() called, but comms not confirmed
         CONNECTED,     // Comms established, ready to read
         DISCONNECTED,  // Communication lost
+        ERROR,         // Some recoverable hardware error
         FAILED         // A hardware or unrecoverable error
     };
 
-    /**
-     * @brief Defines the communication bus being used.
-     */
-    enum class InterfaceType : uint8_t {
-        I2C,   // I2C on ESP32 or Jetson 
-        SPI,   // SPI on ESP32 or Jetson
-        UART,  // UART on ESP32 or Jetson
-        CAN,   // CAN on Jetson
-        USB,   // USB on Jetson
-        OTHER, // Any other interface
-    };
+    // InterfaceType migrated to InterfaceProtocols.hpp
 
     /**
      * @brief Defines which processor is directly handling the sensor driver.
@@ -52,10 +43,10 @@ public:
      * @param interface the bus type (I2C, SPI, etc...)
      * @param host The host processor this driver is running on (OBC, ESP32)
      */
-    explicit SensorInterface(InterfaceType interface, HostController host) : 
-        m_state(SensorState::UNINITIALIZED),
-        m_interface(interface),
-        m_host(host)
+    explicit SensorInterface(Protocols::InterfaceType interface, HostController host) : 
+        _State(SensorState::UNINITIALIZED),
+        _Interface(interface),
+        _Host(host)
     {}
 
     /**
@@ -80,17 +71,17 @@ public:
     /**
      * @brief Gets the current state of the sensor.
      */
-    SensorState getstate() const { return m_state; }
+    SensorState getState() const { return _State; }
 
     /**
      * @brief Gets the interface (I2C, SPI, etc...).
      */
-    InterfaceType getinterface() { return m_interface;}
+    Protocols::InterfaceType getinterface() { return _Interface; }
 
     /**
      * @brief Gets the host controller (OBC, ESP32).
      */
-    HostController getHost() { return m_host; }
+    HostController getHost() { return _Host; }
 
 
 protected:
@@ -98,20 +89,20 @@ protected:
      * @brief The current state of the sensor.
      * Child classes MUST update this variable in their init() and read() functions.
      */
-    SensorState m_state;
+    SensorState _State;
 
     /**
      * @brief The fixed interface type for this sensor.
      */
-    const InterfaceType m_interface;
+    const Protocols::InterfaceType _Interface;
 
     /**
      * @brief the fixed host controller for this sensor driver.
      */
-    const HostController m_host;
+    const HostController _Host;
     
 };
-}
-}
-}
+} // namespace Sensors
+} // namespace Common
+} // namespace Lunabotics
 #endif 
