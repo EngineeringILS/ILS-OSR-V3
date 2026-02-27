@@ -5,6 +5,10 @@ import time
 # Roboclaw Base Library
 from basicmicro import Basicmicro as Roboclaw
 
+# FSM State Curves and Control:
+# Think ECEN-248 + ECEN-214 Type Logic:
+from roboclaw_control_curves import normalized_decay_array, normalized_logistic_array
+from roboclaw_types import MotorCurveLUT, populate_curve_lut, movement_state, SpeedConfig, MotorCurveLUTConfig
 # Fixing Function Input Types:
 import typing
 
@@ -120,3 +124,37 @@ def rotate_left(roboclaw: Roboclaw, speed: float, controller_address: int, debug
     if (not status) and debug:
         print(f"Roboclaw Set Speed on M1/M2 Failed")
     return
+
+class RoboclawControlLoop:
+    """
+    State-machine driven controller for the Roboclaw MCU with strict safety boundaries
+    """
+    def __init__(self, serial_port: str, baud_rate: str, controller_address: int, speed_config: SpeedConfig):
+        self.serial_port = serial_port
+        self.baud_rate = baud_rate
+        self.controller_address = controller_address
+        self.speedconfig = speed_config
+        self.roboclaw = Roboclaw(self.serial_port, self.baud_rate)
+        self.current_state = movement_state.STOPPED
+        self.current_speed = 0
+        self.is_connected = False
+    
+    def connect(self) -> bool:
+        """Opens the Roboclaw Serial Connection and verifies firmware."""
+        print(f"Attempting to Connect to Roboclaw at {self.serial_port} (BAUD: {self.baud_rate}).")
+        try:
+            self.roboclaw.Open()
+            firmware_version = self.roboclaw.ReadVersion(self.address)
+            if firmware_version[0]:
+                print(f"Connected to Roboclaw. Firmware: {firmware_version[1]}.")
+                self.is_connected = True
+                # STOP immediately if for some reason we connect and the default state on the Roboclaw is moving. 
+                self.roboclaw.SpeedAccelM1M2(address=self.controller_address, 
+                                             speed1=self.speedconfig.stopped, speed2=self.speedconfig.stopped)
+                return True
+            else:
+                print("Failed to connect: Firmware read failed.")
+                return False
+        except Exception as error:
+            print(f"Error Connecting to Roboclaw: {str(error)}")
+            return False

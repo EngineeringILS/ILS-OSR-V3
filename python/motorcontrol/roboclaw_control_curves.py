@@ -66,3 +66,5 @@ def normalized_decay_array(length: int, steepness: float):
     # Normalize Logistic Coefficients
     scaled_coefficients = (raw_values - min_val) / (max_val - min_val)
     return scaled_coefficients
+
+    
