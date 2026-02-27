@@ -83,6 +83,7 @@ def roboclaw_movement_loop(roboclaw : Roboclaw, speed: float, controller_address
                 # Rotate Left
                 rotate_left(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
             elif movement == ("c"):
+                roboclaw.SpeedM1M2(address=controller_address, m1=0, m2=0)
                 break
             else:
                 print ("C to break.", end='\r\n')
