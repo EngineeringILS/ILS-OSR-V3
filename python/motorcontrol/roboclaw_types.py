@@ -1,4 +1,5 @@
 """
+roboclaw_types.py
 Defined Structures to Handle Acceleration/Deceleration LUTs.
 """
 
@@ -39,16 +40,16 @@ class MotorCurveLUT:
     max_speed: int = 0
     length: int = 0
     steepness: float = 0
-    array: np.ndarray =  field(default_factory=lambda: np.array([], dtype=float))
+    array: np.ndarray =  field(default_factory=lambda: np.array([], dtype=int))
 
 # Populate the Motor Curve Lut, this will FAIL if the incoming array is not properly set up.
 def populate_curve_lut(method: Callable[[int, float], np.ndarray], lut: MotorCurveLUT):
     normalized_LUT = CurveLUT(lut.length, lut.steepness)
     normalized_LUT.array = method(lut.length, lut.steepness)
-    lut.array = lut.min_speed + (normalized_LUT.array * (lut.max_speed - lut.min_speed))
+    lut.array = (lut.min_speed + (normalized_LUT.array * (lut.max_speed - lut.min_speed))).astype(int)
 
 
-class movement_state(Enum):
+class MovementState(Enum):
     """
     The movement state is useful here because it allows different states of motion that are deterministic
     our autonomy algorithms will find it easier to define tasks as it separates drive motion on the tracked base
@@ -60,6 +61,40 @@ class movement_state(Enum):
     FORWARD_DRIVE = 2
     REVERSE_DRIVE = 3
     TURN_DRIVE = 4
+
+class MovementSubState(Enum):
+    """
+    Each movement state can be broken down into the following substates
+    """
+    STOPPED = 0  # Sends to the global movement state once achieved
+    ACCELERATING = 1 # Obeying some acceleration LUT map
+    DECELERATING = 2 # Obeying some deceleration LUT map
+    CONSTANT_VELOCITY = 3 # If at the peak of the acceleration curve
+    BRAKING  = 4 # Obeying the brake curve
+
+""" Movement intuition: 1st input (W) --> FORWARD, in the forward substate until the set of null-inputs accumulates to a set value --> STOPPED
+    While in FORWARD: W keep accelerating, null start decelerating, S start braking, space/interrupt E-STOP --> STOPPED
+    This logic is pretty much true in all cases, but if W be held down, eventually a constant velocity is established.
+"""
+
+
+@dataclass(slots=True)
+class MotorControllerState:
+    """
+    Holds the real-time state of a single motor's controller FSM.
+    This boject persists and is updated in every control loop cycle.
+    """
+    state: MovementState = MovementState.STOPPED
+    substate: MovementSubState = MovementSubState.STOPPED
+    # Ideal speed that was set by the last comamnd in the control loop.
+    current_speed: int = 0
+    # The current index of the LUT
+    lut_index: int = 0 
+    # Default last_input to null --> braking or stopped.
+    last_input: str = None
+    # The number of continuous inputs that have been inputted repeatedly.
+    num_inputs: int = 0 
+    # WARNING! Do not assume that num_inputs matches the lut_index, if dynamic deceleration and acceleration are engaged in the same mode, then these are probably different.
 
 @dataclass(slots=True)
 class SpeedConfig:
@@ -87,19 +122,19 @@ class MotorCurveLUTConfig:
     Holds the preconfigured LUTs for each movement state to be popoulated from a SpeedConfig and through an appropriate methods, various limitations, see comments.
     """
     # Defines the forward acceleration curve
-    forward_accelerate_lut: MotorCurveLUT
+    forward_accelerate_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
     # Defines the forward deceleration curve e.g. as robot returns to the braked/stopped state
-    forward_decelerate_lut: MotorCurveLUT
+    forward_decelerate_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
      # Defines the reverse acceleration curve
-    reverse_accelerate_lut: MotorCurveLUT
+    reverse_accelerate_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
     # Defines the reverse deceleration curve e.g. as robot returns to the braked/stopped state
-    reverse_decelerate_lut: MotorCurveLUT
+    reverse_decelerate_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
     # Defines the basic turning curve, again this will likely be constant, and in the future, there is likely multiple different LUTs to handle differential drive.
-    turning_lut: MotorCurveLUT 
+    turning_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
     # Defines the general braking regime regardless of state as the default response to some error.
-    general_braking_lut: MotorCurveLUT
+    general_braking_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
     # Defines an absolute zero stopped state.
-    stopped_lut: MotorCurveLUT
+    stopped_lut: MotorCurveLUT = field(default_factory=MotorCurveLUT)
 
 
 

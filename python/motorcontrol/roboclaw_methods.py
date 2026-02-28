@@ -1,4 +1,5 @@
 """
+roboclaw_methods.py
 Basic Methods for Setting up and Managing the Roboclaw MCU
 """
 import time
@@ -8,7 +9,7 @@ from basicmicro import Basicmicro as Roboclaw
 # FSM State Curves and Control:
 # Think ECEN-248 + ECEN-214 Type Logic:
 from roboclaw_control_curves import normalized_decay_array, normalized_logistic_array
-from roboclaw_types import MotorCurveLUT, populate_curve_lut, movement_state, SpeedConfig, MotorCurveLUTConfig
+from roboclaw_types import MotorCurveLUT, populate_curve_lut, MovementState, MovementSubState, SpeedConfig, MotorCurveLUTConfig, MotorControllerState
 # Fixing Function Input Types:
 import typing
 
@@ -86,6 +87,10 @@ def roboclaw_movement_loop(roboclaw : Roboclaw, speed: float, controller_address
             elif movement == ("d"):
                 # Rotate Left
                 rotate_left(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
+            elif movement == (" "):
+                brake(roboclaw=roboclaw, speed=0, controller_address=controller_address, debug=debug)
+                if (debug):
+                    print("BRAKING", end='\r\n')
             elif movement == ("c"):
                 roboclaw.SpeedM1M2(address=controller_address, m1=0, m2=0)
                 break
@@ -101,56 +106,93 @@ def move_forward(roboclaw: Roboclaw, speed: float, controller_address: int, debu
     speed = int(speed)
     status = roboclaw.SpeedM1M2(address=controller_address, m1=speed, m2=speed)
     if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed")
+        print(f"Roboclaw Set Speed on M1/M2 Failed" , end='\r\n')
     return
 
 def move_backward(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool) -> None:
     speed = int(speed)
     status = roboclaw.SpeedM1M2(address=controller_address, m1=-speed, m2=-speed)
     if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed")
+        print(f"Roboclaw Set Speed on M1/M2 Failed" , end='\r\n')
     return
 
 def rotate_right(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool) -> None: 
     speed = int(speed)
     status = roboclaw.SpeedM1M2(address=controller_address, m1=speed, m2=-speed)
     if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed")
+        print(f"Roboclaw Set Speed on M1/M2 Failed" , end='\r\n')
     return
 
 def rotate_left(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool)-> None:
     speed = int(speed)
     status = roboclaw.SpeedM1M2(address=controller_address, m1=-speed, m2=speed)
     if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed")
+        print(f"Roboclaw Set Speed on M1/M2 Failed", end='\r\n')
+    return
+
+def brake(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool)->None:
+    speed = int(speed)
+    status = roboclaw.SpeedM1M2(address=controller_address, m1=speed, m2=speed)
+    if (not status) and debug:
+        print(f"Roboclaw Set Speed on M1/M2 Failed", end='\r\n')
     return
 
 class RoboclawControlLoop:
     """
-    State-machine driven controller for the Roboclaw MCU with strict safety boundaries
+    State-machine driven controller for the Roboclaw MCU with strict safety boundaries.
     """
-    def __init__(self, serial_port: str, baud_rate: str, controller_address: int, speed_config: SpeedConfig):
-        self.serial_port = serial_port
-        self.baud_rate = baud_rate
-        self.controller_address = controller_address
-        self.speedconfig = speed_config
-        self.roboclaw = Roboclaw(self.serial_port, self.baud_rate)
-        self.current_state = movement_state.STOPPED
-        self.current_speed = 0
+    def __init__(self, serial_port: str, baud_rate: int, controller_address: int, speed_config: SpeedConfig, debug: bool):
+        # Static Environmental Parameters:
+        self.serial_port: str = serial_port
+        self.baud_rate: int = baud_rate
+        self.controller_address: int = controller_address
+        self.debug: bool = debug
+
+        # Populate LUTs
+        self.curveLutConfig: MotorCurveLUTConfig = MotorCurveLUTConfig(
+            # 5s @ 0.1 smooth ramp
+            forward_accelerate_lut=MotorCurveLUT(speed_config.min_forward, speed_config.max_forward, 100, 0.1),
+            # 2s @ 0.15 smooth decay
+            forward_decelerate_lut=MotorCurveLUT(speed_config.min_forward, speed_config.max_forward, 40, 0.15),
+            # 2.5s @ 0.1 smooth ramp (half the speed to cover)
+            reverse_accelerate_lut=MotorCurveLUT(speed_config.min_reverse, speed_config.max_reverse, 50, 0.1),
+            # 1s @ 0.15 smooth decay 
+            reverse_decelerate_lut=MotorCurveLUT(speed_config.min_reverse, speed_config.max_reverse, 20, 0.15),
+            # This is just flat, at whatever the turning speed is.
+            turning_lut=MotorCurveLUT(speed_config.turn, speed_config.turn, 10, 1),
+            # This decay aggressively takes whatever the current speed is, and damps it to zero in 1 second at a 0.5 decay.
+            general_braking_lut=MotorCurveLUT(speed_config.brake, speed_config.max_forward, 20, 0.5),
+            # This is just flat, at 0
+            stopped_lut=MotorCurveLUT(0,0,10,1)
+        )
+        # Populate the LUTs.
+        populate_curve_lut(normalized_logistic_array, self.curveLutConfig.forward_accelerate_lut)
+        populate_curve_lut(normalized_decay_array, self.curveLutConfig.forward_decelerate_lut)
+        populate_curve_lut(normalized_logistic_array, self.curveLutConfig.reverse_accelerate_lut)
+        populate_curve_lut(normalized_decay_array, self.curveLutConfig.reverse_decelerate_lut)
+        populate_curve_lut(normalized_logistic_array, self.curveLutConfig.turning_lut)
+        populate_curve_lut(normalized_decay_array, self.curveLutConfig.general_braking_lut)
+        populate_curve_lut(normalized_logistic_array, self.curveLutConfig.stopped_lut)
+
+        # Dynamic Roboclaw MCU Object, State Machine Driver:
         self.is_connected = False
-    
+        self.roboclaw = Roboclaw(self.serial_port, self.baud_rate)
+        self.State: MotorControllerState = MotorControllerState()
+
     def connect(self) -> bool:
         """Opens the Roboclaw Serial Connection and verifies firmware."""
         print(f"Attempting to Connect to Roboclaw at {self.serial_port} (BAUD: {self.baud_rate}).")
         try:
             self.roboclaw.Open()
-            firmware_version = self.roboclaw.ReadVersion(self.address)
+            firmware_version = self.roboclaw.ReadVersion(self.controller_address)
             if firmware_version[0]:
                 print(f"Connected to Roboclaw. Firmware: {firmware_version[1]}.")
                 self.is_connected = True
                 # STOP immediately if for some reason we connect and the default state on the Roboclaw is moving. 
-                self.roboclaw.SpeedAccelM1M2(address=self.controller_address, 
-                                             speed1=self.speedconfig.stopped, speed2=self.speedconfig.stopped)
+                self.roboclaw.SpeedM1M2(address=self.controller_address, 
+                                        speed1=self.curveLutConfig.stopped_lut.array[0], 
+                                        speed2=self.curveLutConfig.stopped_lut.array[0])
+                self.is_connected = True
                 return True
             else:
                 print("Failed to connect: Firmware read failed.")

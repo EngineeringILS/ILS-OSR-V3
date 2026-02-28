@@ -17,8 +17,8 @@ import numpy as np
 
 # Visualize Control Curve Behavior (migrate later):
 lut_steepness: np.ndarray = np.linspace(0.1,0.5, 9)
-lut_len: int = 50
-min_speed: int = 1000
+lut_len: int = 10
+min_speed: int = 0
 max_speed: int = 5000
 
     
@@ -46,6 +46,7 @@ for i, slope in enumerate(lut_steepness):
     
     ax.set_title(f"Slope: {slope}")
     ax.legend()
+
 
 # Hide any unused subplots in the grid
 for j in range(i + 1, len(axes_flat)):
