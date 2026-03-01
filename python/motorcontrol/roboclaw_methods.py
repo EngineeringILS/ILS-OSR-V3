@@ -36,6 +36,7 @@ def roboclaw_setup(roboclaw : Roboclaw, serial_port: str, baud_rate: int, contro
     print(f"Starting Setup with Port: {serial_port}, BAUD Rate: {baud_rate}, Controller Address: {controller_address}.")
     print(f"Attempting to Connect to Roboclaw.")\
     # Attempt Connection:
+    roboclaw.Open()
     try:
         firmware_version = roboclaw.ReadVersion(controller_address)
         if (firmware_version[0]):
