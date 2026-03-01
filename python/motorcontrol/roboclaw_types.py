@@ -48,7 +48,28 @@ def populate_curve_lut(method: Callable[[int, float], np.ndarray], lut: MotorCur
     normalized_LUT.array = method(lut.length, lut.steepness)
     lut.array = (lut.min_speed + (normalized_LUT.array * (lut.max_speed - lut.min_speed))).astype(int)
 
+def reverse_index_lut(lut: MotorCurveLUT, speed: int) -> int:
+    """Reverse index against the next-mode LUT to handle substate transitions - see FSM diagram in CDH Google Drive (04/FSM - Concept) """
+    # LUT arrays won't be none/0 - if anyone preprograms the arrays to be zero - it's not an idea any human would implement.
+    # The only valid case is to return -1, in which case we call the ESTOP() method, because if the array has become empty - there is no recoverable path.
+    if lut.array is None or len(lut.array) == 0:
+        return -1
+    
+    # Find the best insertion point based on the consistently shaped LUT:
+    idx = np.searchsorted(lut.array, speed)
 
+    # Handle Boundary Conditions:
+    if idx == 0:
+        return 0
+    if idx == len(lut.array):
+        return len(lut.array) - 1
+
+    # Nearest Neighbor check
+    # If speed is closer to 'before' than 'after', return idx-1
+    if speed - lut.array[idx - 1] < lut.array[idx] - speed:
+        return int(idx - 1)
+    return int(idx)
+    
 class MovementState(Enum):
     """
     The movement state is useful here because it allows different states of motion that are deterministic
@@ -87,7 +108,11 @@ class MotorControllerState:
     state: MovementState = MovementState.STOPPED
     substate: MovementSubState = MovementSubState.STOPPED
     # Ideal speed that was set by the last comamnd in the control loop.
-    current_speed: int = 0
+    # Generalized Speed for FWD/REV
+    straight_current_speed: int = 0
+    # Specialized Speeds engaged in FWD/REV, but specifically important for turning drive, and future differential drive (if added).
+    m1_current_speed: int = 0
+    m2_current_speed: int = 0
     # The current index of the LUT
     lut_index: int = 0 
     # Default last_input to null --> braking or stopped.
@@ -95,6 +120,8 @@ class MotorControllerState:
     # The number of continuous inputs that have been inputted repeatedly.
     num_inputs: int = 0 
     # WARNING! Do not assume that num_inputs matches the lut_index, if dynamic deceleration and acceleration are engaged in the same mode, then these are probably different.
+    # Movement Error - Arises from failed motor motion calls:
+    movement_err: bool = False
 
 @dataclass(slots=True)
 class SpeedConfig:
