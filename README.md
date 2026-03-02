@@ -16,9 +16,8 @@ robust communication, standardized interfaces, and streamlined development for c
 
 ### Intended Users
 - TAMU Lunabotics team members (present and future)
-- Robotics Researchers and team developers seeking a reference CDH Stack
-- Industry partners and sponsors aiming to implement reliable & autonomous robotics
-- Open-source robotics community (via planned public releases)
+- Robotics Researchers and team developers seeking a reference CDH Stack (contact)
+- Industry partners and sponsors aiming to implement reliable & autonomous robotics (contact)
 
 ### Scope
 The repository includes:
@@ -48,34 +47,19 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 ### Setup Instructions
 > **Note:** Setup Instructions are planned *but generally, these will not be created until this project exceeds the subteam level, or on an as-needed basis*.
 
-# Visibility & Open-Source Policy
+# Visibility Policy
 
-> This repository is **private** and intended for internal use by
-TAMU SEDS Lunabotics.
-
-> We plan maintaining a separate **public repository** that contains periodic,
-cleaned snapshots of this codebase for open-source release.
-
-- Internal repo (this one): experimental branches, competition configs,
-  and non-public tooling.
-- Public repo: stable snapshots intended for external users, released
-  under an open-source license.
-
-Before pushing anything to the (planned) public repo, verify that:
-- No credentials or secrets are present.
-- No internal-only documents or data are included.
-- The code builds and runs in a reasonable default configuration.
-
+> This repository is **public** and intended for competition use by
+TAMU Lunabotics. This repository is strictly source-avaliable only for technical observation.
+> It is strictly forbidden to utilize this code for any entity other than NASA or TAMU Lunabotics.
 
 ## Project Contributors
 
-This project is actively developed and maintained by the TAMU SEDS Lunabotics CDH Subteam:
+This project is actively developed and maintained by the TAMU Lunabotics CDH Subteam:
 
 ### Core Team
 * **Rylee Hunt** - [@Rhunt24](https://github.com/Rhunt24) - Chief Engineer
 * **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - Subteam Lead
-* **Alex Stevens** - [@alexnstevens06](https://github.com/alexnstevens) - Subteam Member - Embedded Systems C++ / ESP-IDF
-* **Enrique Venegas** - [@ev-17](https://github.com/ev-17) - Subteam Member -  ROS2 Teleoperation Control Systems
+* **Enrique Venegas** - [@ev-17](https://github.com/ev-17) - Deputy Subteam Lead
 * **Miguel Vargas** - [@miguellvargas](https://github.com/miguellvargas) - Subteam Member - ROS2 
-* **Noah Stovall** - [@noahabuc](https://github.com/noahabuc) - Subteam Member - ROS2 Motor Control 
-* **Timothy Guan** - [@timothyguan](https://github.com/timothyguan) - Subteam Shadow - Python User Interface
+* **Noah Stovall** - [@noahabuc](https://github.com/noahabuc) - Subteam Member - ROS2 Motor Control
