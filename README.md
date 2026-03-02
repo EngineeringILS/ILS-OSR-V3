@@ -1,7 +1,7 @@
 # Project Overview
 
 ### Mission Statement
-Provide a unified, maintainable, and extensible Comamnd & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
+Provide a unified, maintainable, and extensible Command & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
 enabling reliable integration between high-level autonomy, teleopation, and low-level hardware control.
 
 ### Real-World Significance
@@ -11,7 +11,7 @@ robust communication, standardized interfaces, and streamlined development for c
 ### Key Features 
 - **Unified Architecture:** Bridges ROS2-based autonomy and teleoperation with embedded microcontroller firmware.
 - **Standardized Interfaces:** Defines consistent communication protocols and APIs for seamless subsystem integration.
-- **Centralized Codebase:** Houses all CDH-realted code, documentation, and tools in a single repository.
+- **Centralized Codebase:** Houses all CDH-related code, documentation, and tools in a single repository.
 - **Testing & Simulation Support:** Comprehensive documentation and modular design for easy onboarding and future development.
 
 ### Intended Users
@@ -34,8 +34,8 @@ This project requires two distinct platforms for development:
   -  Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with ROS2 Humble and C++ Build Tools installed
 * For ESP-IDF development in `/firmware`:
   - VS-Code with the ESP-IDF extension enabled and working.
-  - Documented incompatibilies on Windows 11 Hosts with MSVC.
-  - It is reccomended to use `C:\Lunabotics` on Windows for development.
+  - Documented incompatibilities on Windows 11 Hosts with MSVC.
+  - It is recommended to use `C:\Lunabotics` on Windows for development.
 
 * Alternatively for pure C++ `/common`:
   - Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with C++ Build Tools installed.
@@ -50,7 +50,7 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 # Visibility Policy
 
 > This repository is **public** and intended for competition use by
-TAMU Lunabotics. This repository is strictly source-avaliable only for technical observation.
+TAMU Lunabotics. This repository is strictly source-available only for technical observation.
 > It is strictly forbidden to utilize this code for any entity other than NASA or TAMU Lunabotics.
 
 ## Project Contributors
