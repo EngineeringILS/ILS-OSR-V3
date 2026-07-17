@@ -1,0 +1,9 @@
+[submodule "ros2_ws/src/roboclaw_serial"]
+	path = ros2_ws/src/roboclaw_serial
+	url = https://github.com/dumbotics/roboclaw_serial.git
+[submodule "ros2_ws/src/roboclaw_hardware_interface"]
+	path = ros2_ws/src/roboclaw_hardware_interface
+	url = https://github.com/dumbotics/roboclaw_hardware_interface.git
+[submodule "ros2_ws/src/sparkcan"]
+	path = ros2_ws/src/sparkcan
+	url = git@github.com:Aden-M/sparkcan.git
