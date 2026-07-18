@@ -41,7 +41,7 @@ def servodriver_setup(servo : ServoKit, pwm_frequency: int, i2c_address: int) ->
 
     """
     print(f"Starting Setup with Port: {i2c_address}, PWM Frequency: {pwm_frequency}.")
-    print(f"Attempting to Connect to Servo Driver.")\
+    print(f"Attempting to Connect to Servo Driver.")
     # Attempt Connection:
     try:
         servo.servo[0].angle = None
@@ -97,37 +97,34 @@ def servo_movement_loop(servo: ServoKit, channel: int, step_degrees, debug: bool
             print(f"Controlling servo channel {channel}. ")
             print("Beginning Movement Loop (C/c to Cancel): ")
         tty.setraw(fd)
-        while (movement_loop):
-            movement = sys.stdin.read(1)
-            movement = movement.lower()
+        while movement_loop:
+            movement = sys.stdin.read(1).lower()
 
-            if (debug): 
-                print(movement[0], end='\r\n')
-                sys.stdin.flush()
+            if debug:
+                print(movement, end="\r\n")
+                sys.stdout.flush()
 
-            elif movement == ("a"):
-                # Rotate Right
+            if movement == "a":
                 current_angle = max(0, current_angle - step_degrees)
                 selected_servo.angle = current_angle
 
-            elif movement == ("d"):
-                # Rotate Left
-                current_angle = max(0, current_angle + step_degrees)
+            elif movement == "d":
+                current_angle = min(180, current_angle + step_degrees)
                 selected_servo.angle = current_angle
 
-            elif movement == (" "):
+            elif movement == " ":
                 current_angle = 90
                 selected_servo.angle = current_angle
-                if (debug):
-                    print("BRAKING", end='\r\n')
+                if debug:
+                    print("CENTERING", end="\r\n")
 
-            elif movement == ("c"):
+            elif movement == "c":
                 selected_servo.angle = None
                 break
 
             else:
-                print ("C to break.", end='\r\n')
-                pass
+
+                print("A/D to move, Space to center, C to break.", end="\r\n")
     
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, org_term_settings)
