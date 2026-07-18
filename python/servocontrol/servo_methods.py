@@ -54,59 +54,85 @@ def servodriver_setup(servo : ServoKit, pwm_frequency: int, i2c_address: int) ->
         return False
 
 
-# def roboclaw_movement_loop(roboclaw : Roboclaw, speed: float, controller_address: float, debug: bool):
-#     """
-#     Basic Tank Drive Motor Control Loop (WASD)
+def servo_movement_loop(servo: ServoKit, channel: int, step_degrees, debug: bool):
+    """
+    A/D moves the servo left and right.
 
-#     :param roboclaw: The Roboclaw MCU Object (Basicmicro Alias)
-#     :type roboclaw: Roboclaw
-#     :param speed: The desired set speed for the connected Motors.
-#     :type speed: float
-#     :param debug: Enable Debug Printouts in the Motor Control Loop itself.
-#     :type debug: bool
-#     """
-#     # Set Termios Raw Nonblocking Char input:
-#     fd = sys.stdin.fileno()
-#     org_term_settings = termios.tcgetattr(fd)
+    Space centers the servo.
 
-#     movement_loop = True
-#     try:
-#         if (debug):
-#             print("Beginning Movement Loop (C/c to Cancel): ")
-#         tty.setraw(fd)
-#         while (movement_loop):
-#             movement = sys.stdin.read(1)
-#             if (debug): 
-#                 print(movement[0], end='\r\n')
-#                 sys.stdin.flush()
-#             movement = movement.lower()
-#             if movement == ("w"):
-#                 # Move Forward
-#                 move_forward(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-#             elif movement == ("a"):
-#                 # Rotate Right
-#                 rotate_right(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-#             elif movement == ("s"):
-#                 # Move Backward
-#                 move_backward(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-#             elif movement == ("d"):
-#                 # Rotate Left
-#                 rotate_left(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-#             elif movement == (" "):
-#                 brake(roboclaw=roboclaw, speed=0, controller_address=controller_address, debug=debug)
-#                 if (debug):
-#                     print("BRAKING", end='\r\n')
-#             elif movement == ("c"):
-#                 roboclaw.SpeedM1M2(address=controller_address, m1=0, m2=0)
-#                 break
-#             else:
-#                 print ("C to break.", end='\r\n')
-#                 pass
+    C disables PWM output and exits.
+
+    :param servo: The Adafruit ServoKit driver object.
+
+    :type servo: ServoKit
+
+    :param channel: The PCA9685 channel connected to the servo.
+
+    :type channel: int
+
+    :param step_degrees: Degrees moved per keypress.
+
+    :type step_degrees: float
+
+    :param debug: Enable debug printouts.
+
+    :type debug: bool
+
+    """
     
-#     finally:
-#         termios.tcsetattr(fd, termios.TCSADRAIN, org_term_settings)
+    # Set Termios Raw Nonblocking Char input:
+    fd = sys.stdin.fileno()
+    org_term_settings = termios.tcgetattr(fd)
 
-# """ Basic Movement Functions, Separated for Future Integration, e.g. More Specific Checking/Differentials for different modes."""
+    selected_servo = servo.servo[channel]
+    movement_loop = True
+
+    current_angle = selected_servo.angle
+    if current_angle is None:
+        current_angle = 90
+        selected_servo.angle = current_angle
+    
+    try:
+        if (debug):
+            print(f"Controlling servo channel {channel}. ")
+            print("Beginning Movement Loop (C/c to Cancel): ")
+        tty.setraw(fd)
+        while (movement_loop):
+            movement = sys.stdin.read(1)
+            movement = movement.lower()
+
+            if (debug): 
+                print(movement[0], end='\r\n')
+                sys.stdin.flush()
+
+            elif movement == ("a"):
+                # Rotate Right
+                current_angle = max(0, current_angle - step_degrees)
+                selected_servo.angle = current_angle
+
+            elif movement == ("d"):
+                # Rotate Left
+                current_angle = max(0, current_angle + step_degrees)
+                selected_servo.angle = current_angle
+
+            elif movement == (" "):
+                current_angle = 90
+                selected_servo.angle = current_angle
+                if (debug):
+                    print("BRAKING", end='\r\n')
+
+            elif movement == ("c"):
+                selected_servo.angle = None
+                break
+
+            else:
+                print ("C to break.", end='\r\n')
+                pass
+    
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, org_term_settings)
+
+""" Basic Movement Functions, Separated for Future Integration, e.g. More Specific Checking/Differentials for different modes."""
 # def move_forward(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool) -> None:
 #     speed = int(speed)
 #     status = roboclaw.SpeedM1M2(address=controller_address, m1=speed, m2=speed)
