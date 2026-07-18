@@ -7,5 +7,8 @@ i2c_address = 0x40
 channel_count = 16
 pwm_frequency = 50
 
+# Testing Definitions:
+servo_number = 0
+
 min_angle = 0
 max_angle = 180

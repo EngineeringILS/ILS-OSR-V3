@@ -125,6 +125,8 @@ def servo_movement_loop(servo: ServoKit, channel: int, step_degrees, debug: bool
             else:
 
                 print("A/D to move, Space to center, C to break.", end="\r\n")
+            if (debug):
+                    print(f"SERVO ANGLE: {selected_servo.angle}")
     
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, org_term_settings)
