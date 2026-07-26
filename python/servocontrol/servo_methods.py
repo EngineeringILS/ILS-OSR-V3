@@ -179,14 +179,26 @@ def servo_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: li
                 sys.stdout.flush()
 
             if movement == "a":
-                front_turn_right(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
+                turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_up = True)
+                #front_turn_right(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
                 hold_straight(servo=servos[0], config=configs[0])
                 hold_straight(servo=servos[2], config=configs[2])
 
+            if movement == "q":
+                turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_down=True)
+                hold_straight(servo=servos[1], config=configs[1])
+                hold_straight(servo=servos[3], config=configs[3])
+                
             elif movement == "d":
-                front_turn_left(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
+                turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_down=True)
+                #front_turn_left(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
                 hold_straight(servo=servos[0], config=configs[0])
                 hold_straight(servo=servos[2], config=configs[2])
+
+            elif movement == "e":
+                turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_up = True)
+                hold_straight(servo=servos[1], config=configs[1])
+                hold_straight(servo=servos[3], config=configs[3])
 
             elif movement == " ":
                 servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
@@ -224,6 +236,43 @@ def servodriver_setzeroes(servodriver: ServoKit, s0_pos : float, s1_pos : float,
 def hold_straight(servo : Servo, config : ServoConfig):
     servo.angle = config.straight
     return
+
+def turn_servos(active_servos : list[Servo], active_configs : list[ServoConfig], step : float = 0.0, step_up : bool = False, step_down : bool = False):
+    # Add error handling later for stepping up and down. 
+    angles : list[float] = []
+    # TODO: Load in angles, from left to right according to the order of inputted servos and their corresponding configurations.
+    # If the angles are incorrect, ensure that active_servos and active_configs have the same order of servos.
+    for i in range(len(active_servos)):
+        servo, config = active_servos[i], active_configs[i]
+        # If there is an existing angle, load it:
+        if servo.angle is not None :
+            angles.append(servo.angle)
+        # Else, default to straight
+        else:
+            angles.append(config.straight)
+
+    # Step the Angles:
+    for i in range(len(active_servos)):
+        config = active_configs[i]
+        angle = angles[i]
+        if (step_up):
+             angle = config.step_up(angle, step)
+        elif (step_down):
+            angle = config.step_down(angle, step)
+        else:
+            angle = angle
+        angles[i] = angle
+
+    # Write the angles:
+    for i in range(len(active_servos)):
+        servo = active_servos[i]
+        angle = angles[i]
+        if angle is not None:
+            servo.angle = angle
+
+    return
+       
+
 
 def front_turn_left(leftservo : Servo, leftconfig : ServoConfig, rightservo: Servo, rightconfig : ServoConfig, step : float):
     left_angle, right_angle = leftservo.angle, rightservo.angle

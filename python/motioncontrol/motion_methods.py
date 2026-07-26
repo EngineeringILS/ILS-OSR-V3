@@ -112,7 +112,7 @@ def hold_straight(servo : Servo, config : ServoConfig):
     return
 
 
-def front_turn_left(leftservo : Servo, leftconfig : ServoConfig, rightservo: Servo, rightconfig : ServoConfig, step : float):
+def front_turn_left(leftservo : Servo, leftconfig : ServoConfig, rightservo: Servo, rightconfig : ServoConfig, step):
     left_angle, right_angle = leftservo.angle, rightservo.angle
 
     if left_angle is None:
@@ -121,7 +121,6 @@ def front_turn_left(leftservo : Servo, leftconfig : ServoConfig, rightservo: Ser
         right_angle = rightconfig.straight 
     
     left_angle, right_angle = leftconfig.step_up(left_angle, step), rightconfig.step_up(right_angle, step)
-
     leftservo.angle, rightservo.angle = left_angle, right_angle
     return
 
