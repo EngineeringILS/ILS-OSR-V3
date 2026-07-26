@@ -13,7 +13,7 @@ from adafruit_motor.servo import Servo
 # from servo_types import MotorCurveLUT, populate_curve_lut, MovementState, MovementSubState, SpeedConfig, MotorCurveLUTConfig, MotorControllerState
 # Fixing Function Input Types:
 import typing
-
+from typing import Any
 from servo_types import ServoConfig
 
 # For Active Input:
@@ -181,24 +181,32 @@ def servo_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: li
             if movement == "a":
                 turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_up = True)
                 #front_turn_right(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
-                hold_straight(servo=servos[0], config=configs[0])
-                hold_straight(servo=servos[2], config=configs[2])
+                # hold_straight(servo=servos[0], config=configs[0])
+                # hold_straight(servo=servos[2], config=configs[2])
+                hold_angle(servo=servos[0], config=configs[0])
+                hold_angle(servo=servos[2], config=configs[2])
 
             if movement == "q":
                 turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_down=True)
-                hold_straight(servo=servos[1], config=configs[1])
-                hold_straight(servo=servos[3], config=configs[3])
+                # hold_straight(servo=servos[1], config=configs[1])
+                # hold_straight(servo=servos[3], config=configs[3])
+                hold_angle(servo=servos[1], config=configs[1])
+                hold_angle(servo=servos[3], config=configs[3])
                 
             elif movement == "d":
                 turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_down=True)
                 #front_turn_left(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
-                hold_straight(servo=servos[0], config=configs[0])
-                hold_straight(servo=servos[2], config=configs[2])
+                # hold_straight(servo=servos[0], config=configs[0])
+                # hold_straight(servo=servos[2], config=configs[2])
+                hold_angle(servo=servos[0], config=configs[0])
+                hold_angle(servo=servos[2], config=configs[2])
 
             elif movement == "e":
                 turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_up = True)
-                hold_straight(servo=servos[1], config=configs[1])
-                hold_straight(servo=servos[3], config=configs[3])
+                # hold_straight(servo=servos[1], config=configs[1])
+                # hold_straight(servo=servos[3], config=configs[3])
+                hold_angle(servo=servos[1], config=configs[1])
+                hold_angle(servo=servos[3], config=configs[3])
 
             elif movement == " ":
                 servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
@@ -223,10 +231,16 @@ def servodriver_setzeroes(servodriver: ServoKit, s0_pos : float, s1_pos : float,
     servos =  [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
     for servo in servos:
         servo.actuation_range = 300
-    servos[0].angle = s0_pos
-    servos[1].angle = s1_pos
-    servos[2].angle = s2_pos
-    servos[3].angle = s3_pos
+
+    # Pylint sucks:
+    s0_pos_ : Any = s0_pos
+    s1_pos_ : Any = s1_pos
+    s2_pos_ : Any = s2_pos
+    s3_pos_ : Any = s3_pos
+    servos[0].angle = s0_pos_
+    servos[1].angle = s1_pos_
+    servos[2].angle = s2_pos_
+    servos[3].angle = s3_pos_
 
     i = 0
     for servo in servos:
@@ -234,7 +248,14 @@ def servodriver_setzeroes(servodriver: ServoKit, s0_pos : float, s1_pos : float,
         i += 1
 
 def hold_straight(servo : Servo, config : ServoConfig):
-    servo.angle = config.straight
+    # Shut up Pylint:
+    angle : Any = config.straight
+    servo.angle = angle
+    return
+
+def hold_angle(servo: Servo, config: ServoConfig):
+    angle : Any = servo.angle
+    servo.angle = angle
     return
 
 def turn_servos(active_servos : list[Servo], active_configs : list[ServoConfig], step : float = 0.0, step_up : bool = False, step_down : bool = False):
@@ -268,35 +289,45 @@ def turn_servos(active_servos : list[Servo], active_configs : list[ServoConfig],
         servo = active_servos[i]
         angle = angles[i]
         if angle is not None:
+            angle : Any = angle
             servo.angle = angle
 
     return
-       
 
+def hold_servos(active_servos : list[Servo], active_configs : list[ServoConfig]):
+    angles : list[float] = []
 
-def front_turn_left(leftservo : Servo, leftconfig : ServoConfig, rightservo: Servo, rightconfig : ServoConfig, step : float):
-    left_angle, right_angle = leftservo.angle, rightservo.angle
+    # Read and append angles:
+    for i in range(len(active_servos)):
+        servo, config = active_servos[i], active_configs[i]
+        if servo.angle is not None:
+            angles.append(servo.angle)
+        else:
+            angles.append(config.straight)
 
-    if left_angle is None:
-        left_angle = leftconfig.straight
-    if right_angle is None:
-        right_angle = rightconfig.straight 
-    
-    left_angle, right_angle = leftconfig.step_up(left_angle, step), rightconfig.step_up(right_angle, step)
+    # Write the angles:
+    for i in range(len(active_servos)):
+        servo, angle = active_servos[i], angles[i]
+        angle : Any = angles[i]
+        servo.angle = angle
 
-    leftservo.angle, rightservo.angle = left_angle, right_angle
     return
 
-def front_turn_right(leftservo : Servo, leftconfig : ServoConfig, rightservo: Servo, rightconfig : ServoConfig, step : float):
-    left_angle, right_angle = leftservo.angle, rightservo.angle
+def hold_zeroes(active_servos : list[Servo], active_configs : list[ServoConfig]):
+    angles : list[float] = []
 
-    if left_angle is None:
-        left_angle = leftconfig.straight
-    if right_angle is None:
-        right_angle = rightconfig.straight 
-    
-    left_angle, right_angle = leftconfig.step_down(left_angle, step), rightconfig.step_down(right_angle, step)
+    # Read and append angles:
+    for i in range(len(active_servos)):
+        servo, config = active_servos[i], active_configs[i]
+        angles.append(config.straight)
+           
 
-    leftservo.angle, rightservo.angle = left_angle, right_angle
+    # Write the angles:
+    for i in range(len(active_servos)):
+        servo, angle = active_servos[i], angles[i]
+        angle : Any = angles[i]
+        servo.angle = angle
+        
     return
+
 
