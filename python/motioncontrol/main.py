@@ -4,12 +4,12 @@ TAMU Lunabotics 2026 Phase 1 Integrated Motion Control Harness
 """
 import motion_methods as methods
 
-from servo_types import ServoConfig
+
 from basicmicro import Basicmicro as Roboclaw
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
 
-from config import i2c_address, channel_count, pwm_frequency, servo_number
+from config import i2c_address, channel_count, pwm_frequency, servo_numbers
 # NOTE: Add these to config.py in the same style as the servo entries above:
 # serial_port = "/dev/ttyS0" (or /dev/ttywwM0 etc.), baud_rate = 38400, controller_address = 0x80, motor_speed = <safe QPPS>
 from config import serial_port, baud_rate, controller_address, motor_speed
@@ -45,33 +45,8 @@ ServoConfig(channel=3, min_safe=20, straight=84,  max_safe=215, name="Front Left
 
 turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
 
-def broke_mans_calibration():
-    methods.servodriver_setup(servo=servodriver, pwm_frequency=pwm_frequency, i2c_address=i2c_address)
-    methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=zeroes[0], s1_pos=zeroes[1], s2_pos=zeroes[2], s3_pos=zeroes[3])
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=zeroes[0], channel=0, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=zeroes[1], channel=1, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=zeroes[2], channel=2, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=zeroes[3], channel=3, debug=True)
-    methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=zeroes[0], s1_pos=zeroes[1], s2_pos=zeroes[2], s3_pos=zeroes[3])
-
-def scuffed_servo_only_test():
-    # Old Phase 1 steering-only harness (passed on hardware) - kept for modular fallback.
-    methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=zeroes[0], s1_pos=zeroes[1], s2_pos=zeroes[2], s3_pos=zeroes[3])
-    for servo in turning_servos:
-        servo.actuation_range = 300
-
-    methods.servo_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=4, debug=True)
-
-def scuffed_roboclaw_only_test():
-    # Old tank-drive motor-only harness - kept for modular fallback.
-    methods.roboclaw_setup(roboclaw=roboclaw, serial_port=serial_port, baud_rate=baud_rate, controller_address=controller_address)
-    methods.roboclaw_movement_loop(roboclaw=roboclaw, speed=motor_speed, controller_address=controller_address, debug=True)
 
 def main():
-    # broke_mans_calibration()
-    # scuffed_servo_only_test()
-    # scuffed_roboclaw_only_test()
-
     # Servo Driver Bringup:
     methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=zeroes[0], s1_pos=zeroes[1], s2_pos=zeroes[2], s3_pos=zeroes[3])
     for servo in turning_servos:
