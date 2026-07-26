@@ -18,8 +18,14 @@ install/
 log/
 
 # --- IDE Settings ---
-# Keep your personal editor settings out of shared code
-.vscode/
+# Force Git to traverse .vscode/ even if .vscode is ignored globally (~/.config/git/ignore)
+!.vscode/
+
+# Ignore all user-specific local files in .vscode (workspace state, launch configs, tasks)
+.vscode/*
+
+# Whitelist settings.json so Pylance configuration is tracked across all endpoints
+!.vscode/settings.json
 .idea/
 
 # --- OS Junk ---

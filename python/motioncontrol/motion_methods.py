@@ -11,6 +11,17 @@ from basicmicro import Basicmicro as Roboclaw
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
 
+import sys
+from pathlib import Path
+
+# motioncontrol/main.py -> python/
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
+
+
+import motorcontrol
 # FSM State Curves and Control:
 # Think ECEN-248 + ECEN-214 Type Logic:
 from roboclaw_control_curves import normalized_decay_array, normalized_logistic_array
