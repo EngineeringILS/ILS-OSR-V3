@@ -221,7 +221,6 @@ def servodriver_setzeroes(servodriver: ServoKit, s0_pos : float, s1_pos : float,
         print(f"Servo: {i} | Position: {servo.angle}")
         i += 1
 
-
 def hold_straight(servo : Servo, config : ServoConfig):
     servo.angle = config.straight
     return
