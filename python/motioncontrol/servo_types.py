@@ -1,5 +1,5 @@
 """
-servo_types.py
+roboclaw_types.py
 Defined Structures to Handle Acceleration/Deceleration LUTs.
 """
 

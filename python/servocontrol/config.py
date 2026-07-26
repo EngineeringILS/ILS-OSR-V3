@@ -8,7 +8,7 @@ channel_count = 16
 pwm_frequency = 50
 
 # Testing Definitions:
-servo_number = 0
+servo_number = 1
 
 min_angle = 0
 max_angle = 180
