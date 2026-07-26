@@ -1,4 +1,5 @@
 adafruit-circuitpython-servokit
+basicmicro==2.0.10
 contourpy==1.3.2
 cycler==0.12.1
 fonttools==4.61.1
