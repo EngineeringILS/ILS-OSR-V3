@@ -20,6 +20,8 @@ class RoboclawUnit:
 class Motor:
     id : int
     index : int
+    channel : int
     encoder : float = 0.0
     speed : int = 0
+    actual_speed : int = 0
     name : str = ""
