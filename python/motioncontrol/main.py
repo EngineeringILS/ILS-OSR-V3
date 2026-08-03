@@ -9,21 +9,28 @@ from basicmicro import Basicmicro as Roboclaw
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
 
-from config import i2c_address, channel_count, pwm_frequency, servo_numbers
+from config import i2c_address, channel_count, pwm_frequency
 # NOTE: Add these to config.py in the same style as the servo entries above:
 # serial_port = "/dev/ttyS0" (or /dev/ttywwM0 etc.), baud_rate = 38400, controller_address = 0x80, motor_speed = <safe QPPS>
 from config import serial_port, baud_rate, controller_address, motor_speed
 
-# Servo0 | Zeropoint ~~179 ~~177
-# Servo1 | Zeropoint ~~124 ~~123
-# Servo2 | Zeropoint ~~155 ~~153
-# Servo3 | Zeropoint ~~084
 
-# Servo# | [Max Safe, Straight, Min Safe] | Comment:
-# Servo0 | [052, 177, 300] | 052/300 Are Front/Back Perpindicular to Straight
-# Servo1 | [000, 123, 180] | 000 is Perpindicular to Straight, 180 is the maixmum safe interior turn
-# Servo2 | [030, 153, 278] | 052/300 Are Front/Back Perpindicular to Straight
-# Servo3 | [020, 084, 215] | 020 is the maixmum safe interior turn, 215 is Perpindicular to Straight, 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Global Configs
 zeroes = [177, 123, 155, 84]
@@ -36,12 +43,8 @@ watchdog_timeout = 1.5   # Seconds without any valid W/A/S/D before decel begins
 control_period = 0.05       # Loop tick period (select() timeout), 20 Hz.
 deceleration_step = 10.0     # 0.0 --> auto: ramp full speed to zero over ~1 second.
 acceleration_step = 10.0
-servo_configs : list[ServoConfig] = [
-ServoConfig(channel=0, min_safe=52, straight=177, max_safe=300, name="Back Right"),
-ServoConfig(channel=1, min_safe=0,  straight=123, max_safe=180, name="Front Right"),
-ServoConfig(channel=2, min_safe=30, straight=153, max_safe=278, name="Back Left"),
-ServoConfig(channel=3, min_safe=20, straight=84,  max_safe=215, name="Front Left")
-    ]
+
+
 
 turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
 

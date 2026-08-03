@@ -3,20 +3,35 @@ roboclaw_methods.py
 Basic Methods for Setting up and Managing the Roboclaw MCU
 """
 import time
-# Roboclaw Base Library
-from basicmicro import Basicmicro as Roboclaw
-
-# FSM State Curves and Control:
-# Think ECEN-248 + ECEN-214 Type Logic:
-from roboclaw_control_curves import normalized_decay_array, normalized_logistic_array
-from roboclaw_types import MotorCurveLUT, populate_curve_lut, MovementState, MovementSubState, SpeedConfig, MotorCurveLUTConfig, MotorControllerState
-# Fixing Function Input Types:
-import typing
-
-# For Active Input:
 import sys
 import tty
 import termios
+import typing
+
+# Roboclaw Base Library
+from basicmicro import Basicmicro as Roboclaw
+from roboclaw_types import RoboclawUnit, MotorConfig
+
+def roboclaw_setup(roboclaws: list[RoboclawUnit], addresses : list[int], baud_rate: int, debug : bool = False) -> bool:
+    ordered_roboclaws = [None, None, None]
+            
+    for i in range(len(roboclaws)):
+        if (debug):
+            print(f"Setting up {roboclaws[i].name} with Port: {roboclaws[i].serial_port}, BAUD Rate: {baud_rate}, Varying Addresses:")
+        roboclaw = Roboclaw(comport=roboclaws[i].serial_port, rate=baud_rate)
+        
+        for j in range(len(addresses)):
+            address = addresses[j]
+            firmware = roboclaw.ReadVersion(address=address)
+            if (firmware[0]):
+                if(debug):
+                    print(f"Matched Roboclaw: {j}")
+                ordered_roboclaws[i] = roboclaw
+                return True
+    
+
+
+
 
 def roboclaw_setup(roboclaw : Roboclaw, serial_port: str, baud_rate: int, controller_address: int) -> bool:
     """
@@ -79,15 +94,9 @@ def roboclaw_movement_loop(roboclaw : Roboclaw, speed: float, controller_address
             if movement == ("w"):
                 # Move Forward
                 move_forward(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-            elif movement == ("a"):
-                # Rotate Right
-                rotate_right(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
             elif movement == ("s"):
                 # Move Backward
                 move_backward(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
-            elif movement == ("d"):
-                # Rotate Left
-                rotate_left(roboclaw=roboclaw, speed=speed, controller_address=controller_address, debug=debug)
             elif movement == (" "):
                 brake(roboclaw=roboclaw, speed=0, controller_address=controller_address, debug=debug)
                 if (debug):
@@ -117,19 +126,7 @@ def move_backward(roboclaw: Roboclaw, speed: float, controller_address: int, deb
         print(f"Roboclaw Set Speed on M1/M2 Failed" , end='\r\n')
     return
 
-def rotate_right(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool) -> None: 
-    speed = int(speed)
-    status = roboclaw.SpeedM1M2(address=controller_address, m1=speed, m2=-speed)
-    if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed" , end='\r\n')
-    return
 
-def rotate_left(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool)-> None:
-    speed = int(speed)
-    status = roboclaw.SpeedM1M2(address=controller_address, m1=-speed, m2=speed)
-    if (not status) and debug:
-        print(f"Roboclaw Set Speed on M1/M2 Failed", end='\r\n')
-    return
 
 def brake(roboclaw: Roboclaw, speed: float, controller_address: int, debug: bool)->None:
     speed = int(speed)
