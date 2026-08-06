@@ -179,34 +179,34 @@ def servo_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: li
                 sys.stdout.flush()
 
             if movement == "a":
-                turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_up = True)
+                turn_servos(active_servos=[servos[1], servos[2]], active_configs=[configs[1], configs[2]], step=step_degrees, step_up = True)
                 #front_turn_right(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
                 # hold_straight(servo=servos[0], config=configs[0])
                 # hold_straight(servo=servos[2], config=configs[2])
                 hold_angle(servo=servos[0], config=configs[0])
-                hold_angle(servo=servos[2], config=configs[2])
+                hold_angle(servo=servos[3], config=configs[3])
 
             if movement == "q":
-                turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_down=True)
+                turn_servos(active_servos=[servos[0], servos[3]], active_configs=[configs[0], configs[3]], step=step_degrees, step_down=True)
                 # hold_straight(servo=servos[1], config=configs[1])
                 # hold_straight(servo=servos[3], config=configs[3])
                 hold_angle(servo=servos[1], config=configs[1])
-                hold_angle(servo=servos[3], config=configs[3])
+                hold_angle(servo=servos[2], config=configs[2])
                 
             elif movement == "d":
-                turn_servos(active_servos=[servos[1], servos[3]], active_configs=[configs[1], configs[3]], step=step_degrees, step_down=True)
+                turn_servos(active_servos=[servos[1], servos[2]], active_configs=[configs[1], configs[2]], step=step_degrees, step_down=True)
                 #front_turn_left(leftservo=servos[3], leftconfig=configs[3], rightservo=servos[1], rightconfig=configs[1], step = step_degrees)
                 # hold_straight(servo=servos[0], config=configs[0])
                 # hold_straight(servo=servos[2], config=configs[2])
                 hold_angle(servo=servos[0], config=configs[0])
-                hold_angle(servo=servos[2], config=configs[2])
+                hold_angle(servo=servos[3], config=configs[3])
 
             elif movement == "e":
-                turn_servos(active_servos=[servos[0], servos[2]], active_configs=[configs[0], configs[2]], step=step_degrees, step_up = True)
+                turn_servos(active_servos=[servos[0], servos[3]], active_configs=[configs[0], configs[3]], step=step_degrees, step_up = True)
                 # hold_straight(servo=servos[1], config=configs[1])
                 # hold_straight(servo=servos[3], config=configs[3])
                 hold_angle(servo=servos[1], config=configs[1])
-                hold_angle(servo=servos[3], config=configs[3])
+                hold_angle(servo=servos[2], config=configs[2])
 
             elif movement == " ":
                 servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)

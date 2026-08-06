@@ -7,8 +7,8 @@ from servo_methods import ServoConfig
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
 
-from config import i2c_address, channel_count, pwm_frequency, zeroes, step_degrees
-from config import s0_params, s1_params, s2_params, s3_params
+from servo_config import i2c_address, channel_count, pwm_frequency, zeroes, step_degrees
+from servo_config import s0_params, s1_params, s2_params, s3_params
 
 # Configuration:
 servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pwm_frequency)
@@ -16,8 +16,8 @@ servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pw
 servo_configs : list[ServoConfig] = [
     ServoConfig(channel=0, min_safe=s0_params[0],  straight=s0_params[1], max_safe=s0_params[2], name="Back Right"),
     ServoConfig(channel=1, min_safe=s1_params[0],  straight=s1_params[1], max_safe=s1_params[2], name="Front Right"),
-    ServoConfig(channel=2, min_safe=s2_params[0],  straight=s2_params[1], max_safe=s2_params[2], name="Back Left"),
-    ServoConfig(channel=3, min_safe=s3_params[0],  straight=s3_params[1], max_safe=s3_params[2], name="Front Left")
+    ServoConfig(channel=2, min_safe=s2_params[0],  straight=s2_params[1], max_safe=s2_params[2], name="Front Left"),
+    ServoConfig(channel=3, min_safe=s3_params[0],  straight=s3_params[1], max_safe=s3_params[2], name="Back Left"),
     ]
 
 turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
