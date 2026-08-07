@@ -14,7 +14,7 @@ from adafruit_motor.servo import Servo
 # Fixing Function Input Types:
 import typing
 from typing import Any
-from servo_types import ServoConfig
+from .servo_types import ServoConfig
 
 # For Active Input:
 import sys

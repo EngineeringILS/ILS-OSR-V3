@@ -10,7 +10,7 @@ import typing
 from typing import Tuple
 # Roboclaw Base Library
 from basicmicro import Basicmicro as Roboclaw
-from roboclaw_types import RoboclawUnit, Motor
+from .roboclaw_types import RoboclawUnit, Motor
 
 # Take the Linux Ports, find whatever responds as a Roboclaw to the given address and baud rate:
 def discover_serial(ports: list[str], address: int, baud_rate: int, debug: bool = False) -> Tuple[Roboclaw | None, str | None]:
@@ -125,7 +125,10 @@ def move_motors(motors : list[Motor], roboclaws: list[RoboclawUnit]):
 
     # Stage Movement:
     for motor in motors:
-        staged_movement[motor.index][motor.channel] = motor.speed
+        if (motor.encoder_reversed):
+            staged_movement[motor.index][motor.channel] = -1 * motor.speed
+        else:
+            staged_movement[motor.index][motor.channel] = motor.speed
 
     # Write Movement:
     for i in range(len(roboclaws)):

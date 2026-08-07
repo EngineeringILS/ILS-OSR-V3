@@ -21,12 +21,12 @@ from roboclaw_config import serial_ports, baud_rate, controller_addreses
 '''
 Static Definitions and Configuration:
 '''
-FRONT_LEFT   = Motor(index=0, channel=0, id=0, name="Front Left")
-FRONT_RIGHT  = Motor(index=1, channel=0, id=1, name="Front Right") 
-MIDDLE_LEFT  = Motor(index=0, channel=1, id=2, name="Middle Left")
-MIDDLE_RIGHT = Motor(index=1, channel=1, id=3, name="Middle Right") 
-BACK_LEFT    = Motor(index=2, channel=1, id=4, name="Back Left")
-BACK_RIGHT   = Motor(index=2, channel=0, id=5, name="Back Right") 
+FRONT_LEFT   = Motor(index=0, channel=0, id=0, name="Front Left", encoder_reversed=True)
+FRONT_RIGHT  = Motor(index=1, channel=0, id=1, name="Front Right", encoder_reversed=False) 
+MIDDLE_LEFT  = Motor(index=0, channel=1, id=2, name="Middle Left", encoder_reversed=True)
+MIDDLE_RIGHT = Motor(index=1, channel=1, id=3, name="Middle Right", encoder_reversed=False) 
+BACK_LEFT    = Motor(index=2, channel=1, id=4, name="Back Left", encoder_reversed=True)
+BACK_RIGHT   = Motor(index=2, channel=0, id=5, name="Back Right", encoder_reversed=False) 
 
 FRONT_LEFT_QPPS   = 3200
 FRONT_RIGHT_QPPS  = 3200

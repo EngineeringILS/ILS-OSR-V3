@@ -24,4 +24,5 @@ class Motor:
     encoder : float = 0.0
     speed : int = 0
     actual_speed : int = 0
+    encoder_reversed : bool = False
     name : str = ""
