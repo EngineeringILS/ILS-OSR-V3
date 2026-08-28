@@ -1,7 +1,7 @@
 # Project Overview
 
 ### Mission Statement
-Provide a unified, maintainable, and extensible Command & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
+Provide a unified, maintainable, and extensible software stack for the ILS OSR V3 Project, 
 enabling reliable integration between high-level autonomy, teleopation, and low-level hardware control.
 
 ### Real-World Significance
@@ -11,13 +11,13 @@ robust communication, standardized interfaces, and streamlined development for c
 ### Key Features 
 - **Unified Architecture:** Bridges ROS2-based autonomy and teleoperation with embedded microcontroller firmware.
 - **Standardized Interfaces:** Defines consistent communication protocols and APIs for seamless subsystem integration.
-- **Centralized Codebase:** Houses all CDH-related code, documentation, and tools in a single repository.
+- **Centralized Codebase:** Houses all CDH-realted code, documentation, and tools in a single repository.
 - **Testing & Simulation Support:** Comprehensive documentation and modular design for easy onboarding and future development.
 
 ### Intended Users
-- TAMU Lunabotics team members (present and future)
-- Robotics Researchers and team developers seeking a reference CDH Stack (contact)
-- Industry partners and sponsors aiming to implement reliable & autonomous robotics (contact)
+- Robotics Researchers and team developers seeking a reference CDH Stack
+- Industry partners and sponsors aiming to implement reliable & autonomous robotics
+- Open-source robotics community (via planned public releases)
 
 ### Scope
 The repository includes:
@@ -34,8 +34,8 @@ This project requires two distinct platforms for development:
   -  Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with ROS2 Humble and C++ Build Tools installed
 * For ESP-IDF development in `/firmware`:
   - VS-Code with the ESP-IDF extension enabled and working.
-  - Documented incompatibilities on Windows 11 Hosts with MSVC.
-  - It is recommended to use `C:\Lunabotics` on Windows for development.
+  - Documented incompatibilies on Windows 11 Hosts with MSVC.
+  - It is reccomended to use `C:\Lunabotics` on Windows for development.
 
 * Alternatively for pure C++ `/common`:
   - Ubuntu 22.04.05 LTS (Desktop, Server, WSL), with C++ Build Tools installed.
@@ -47,19 +47,13 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 ### Setup Instructions
 > **Note:** Setup Instructions are planned *but generally, these will not be created until this project exceeds the subteam level, or on an as-needed basis*.
 
-# Visibility Policy
+# Visibility & Open-Source Policy
 
-> This repository is **public** and intended for competition use by
-TAMU Lunabotics. This repository is strictly source-available only for technical observation.
-> It is strictly forbidden to utilize this code for any entity other than NASA or TAMU Lunabotics.
+> This repository is will be made open source upon project completion.
+
 
 ## Project Contributors
 
-This project is actively developed and maintained by the TAMU Lunabotics CDH Subteam:
+This project is actively developed and maintained by the Engineering ILS Foundation:
 
-### Core Team
-* **Rylee Hunt** - [@Rhunt24](https://github.com/Rhunt24) - Chief Engineer
-* **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - Subteam Lead
-* **Enrique Venegas** - [@ev-17](https://github.com/ev-17) - Deputy Subteam Lead
-* **Miguel Vargas** - [@miguellvargas](https://github.com/miguellvargas) - Subteam Member - ROS2 
-* **Noah Stovall** - [@noahabuc](https://github.com/noahabuc) - Subteam Member - ROS2 Motor Control
+* **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - President
