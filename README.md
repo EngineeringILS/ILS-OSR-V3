@@ -1,7 +1,7 @@
 # Project Overview
 
 ### Mission Statement
-Provide a unified, maintainable, and extensible Comamnd & Data Handling (CDH) software stack for the TAMU Lunabotics robot, 
+Provide a unified, maintainable, and extensible software stack for the ILS OSR V3 Project, 
 enabling reliable integration between high-level autonomy, teleopation, and low-level hardware control.
 
 ### Real-World Significance
@@ -15,7 +15,6 @@ robust communication, standardized interfaces, and streamlined development for c
 - **Testing & Simulation Support:** Comprehensive documentation and modular design for easy onboarding and future development.
 
 ### Intended Users
-- TAMU Lunabotics team members (present and future)
 - Robotics Researchers and team developers seeking a reference CDH Stack
 - Industry partners and sponsors aiming to implement reliable & autonomous robotics
 - Open-source robotics community (via planned public releases)
@@ -50,32 +49,11 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 
 # Visibility & Open-Source Policy
 
-> This repository is **private** and intended for internal use by
-TAMU SEDS Lunabotics.
-
-> We plan maintaining a separate **public repository** that contains periodic,
-cleaned snapshots of this codebase for open-source release.
-
-- Internal repo (this one): experimental branches, competition configs,
-  and non-public tooling.
-- Public repo: stable snapshots intended for external users, released
-  under an open-source license.
-
-Before pushing anything to the (planned) public repo, verify that:
-- No credentials or secrets are present.
-- No internal-only documents or data are included.
-- The code builds and runs in a reasonable default configuration.
+> This repository is will be made open source upon project completion.
 
 
 ## Project Contributors
 
-This project is actively developed and maintained by the TAMU SEDS Lunabotics CDH Subteam:
+This project is actively developed and maintained by the Engineering ILS Foundation:
 
-### Core Team
-* **Rylee Hunt** - [@Rhunt24](https://github.com/Rhunt24) - Chief Engineer
-* **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - Subteam Lead
-* **Alex Stevens** - [@alexnstevens06](https://github.com/alexnstevens) - Subteam Member - Embedded Systems C++ / ESP-IDF
-* **Enrique Venegas** - [@ev-17](https://github.com/ev-17) - Subteam Member -  ROS2 Teleoperation Control Systems
-* **Miguel Vargas** - [@miguellvargas](https://github.com/miguellvargas) - Subteam Member - ROS2 
-* **Noah Stovall** - [@noahabuc](https://github.com/noahabuc) - Subteam Member - ROS2 Motor Control 
-* **Timothy Guan** - [@timothyguan](https://github.com/timothyguan) - Subteam Shadow - Python User Interface
+* **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - President
