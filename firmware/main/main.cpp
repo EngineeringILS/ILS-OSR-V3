@@ -5,6 +5,7 @@
 #include <i2c_tools.hpp>
 #include <Max1704x_test.hpp>
 #include <Max1704x.hpp>
+#include <ina3221.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
 #include <stdexcept>
@@ -46,12 +47,15 @@ void app_main(void) {
     
     // 3. User Interaction Loop
     std::string ioMsg;
-    Terminal.serial_out("[TEST START] System Ready. \n");
+    ioMsg.reserve(512);
+    ioMsg = "[TEST START] System Ready. \n";
+    Terminal.serial_out(ioMsg);
     
     while (true) {
-        
-        Terminal.serial_out("Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', or 'q' to quit: \n");
-        ioMsg = Terminal.serial_in("Input: ");
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', or 'q' to quit: \n";
+        Terminal.serial_out(ioMsg);
+        ioMsg = "Input: ";
+        ioMsg = Terminal.serial_in(ioMsg);
 
         if (ioMsg == "check") {
             i2c_status(Terminal, i2cBus0);

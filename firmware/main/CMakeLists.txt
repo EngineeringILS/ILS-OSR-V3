@@ -7,6 +7,7 @@ idf_component_register(
              SerialIO    
              max1704x_driver
              max1704x_test
+             ina3221_driver
              i2c_driver
              i2c_tools
                # Automatically Include and Register the Common Library as a Requirement

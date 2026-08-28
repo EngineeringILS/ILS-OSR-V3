@@ -6,6 +6,11 @@
 
 namespace Lunabotics {
 namespace Common {
+/**
+ * @brief Provides the major data types with unit standardization for all downstream project components.
+ * @note It is planned to migrate the datatypes for specific devices into their specific drivers 
+ * at a later date, the migration should be straightforward.
+ */
 namespace DataTypes {
 
     // Define a standard clock system for all timestamps and derived sensors/motors using std::chrono:
@@ -60,6 +65,30 @@ namespace DataTypes {
         // Simple Flags:
         bool is_charging = false;
         bool is_low = false;
+    };
+
+    /**
+     * @brief Struct that provides voltage, shunt voltage, current, and power
+     * data for one INA3221 measurement channel.
+     */
+    struct PowerChannelData {
+        Units::QuantityD<Units::Volts>   bus_voltage   = Units::ZERO;
+        Units::QuantityD<Units::Volts>   shunt_voltage = Units::ZERO;
+        Units::QuantityD<Units::Amperes> current       = Units::ZERO;
+        Units::QuantityD<Units::Watts>   power         = Units::ZERO;
+    };
+
+    /**
+     * @brief Struct that provides power-monitoring data for all three fixed
+     * INA3221 measurement channels, together with a timestamp and status flags.
+     */
+    struct INA3221Data {
+        PowerChannelData channel_1;
+        PowerChannelData channel_2;
+        PowerChannelData channel_3;
+
+        Timestamp timestamp;
+        uint16_t  flags = 0;
     };
 }
 }
