@@ -161,6 +161,23 @@ public:
         initialized_ = false;
     }
 
+    
+    /**
+     * @brief Writes a raw buffer to the device (useful for commands without registers).
+     */
+    bool write(const uint8_t* data, size_t len) {
+        if (!device_handle_ || !initialized_ ) {
+            return false;
+        }
+        reg_rx_err_ = i2c_master_transmit(device_handle_, data, len, -1);
+        if (reg_rx_err_ == ESP_OK) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
     /**
      * @brief Writes a byte of data to a specific I2C Device's register.
      * @param reg_addr The hex address of the register.
@@ -171,6 +188,19 @@ public:
         uint8_t write_buf[2] = {reg_addr, data};
         return write(write_buf, 2);
     }
+
+     /**
+     * @brief Writes a byte of data to a specific I2C Device's register.
+     * @param reg_addr The hex address of the register.
+     * @param data The 2 data bytes to write.
+     * @returns True if the write operation returns ESP_OK, false if an error occurs (check getRXerr() for more info).
+     */
+    bool writeRegister(const uint8_t& reg_addr, const uint16_t& data) {
+        uint8_t write_buf[3] = {reg_addr, static_cast<uint8_t>(data >> 8), static_cast<uint8_t>(data)
+    };
+        return write(write_buf, 3);
+    }
+
 
     /**
      * @brief Reads a byte of data from a specific I2C Device's register.
@@ -237,21 +267,7 @@ public:
     }
     
     
-    /**
-     * @brief Writes a raw buffer to the device (useful for commands without registers).
-     */
-    bool write(const uint8_t* data, size_t len) {
-        if (!device_handle_ || !initialized_ ) {
-            return false;
-        }
-        reg_rx_err_ = i2c_master_transmit(device_handle_, data, len, -1);
-        if (reg_rx_err_ == ESP_OK) {
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
+
 
     // Public Getter Methods:
     I2CBus* getBus() {return bus_; }
