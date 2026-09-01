@@ -26,3 +26,5 @@ class Motor:
     actual_speed : int = 0
     encoder_reversed : bool = False
     name : str = ""
+    def setEncoderState(self, encoder_reversed : bool) -> None:
+        self.encoder_reversed = encoder_reversed
