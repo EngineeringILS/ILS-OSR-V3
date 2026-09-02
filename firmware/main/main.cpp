@@ -28,8 +28,11 @@ extern "C" {
 void app_main(void) {
     // 1. Setup Hardware
     Boards::FeatherS3TFT board;
-    gpio_set_direction(gpio_num_t(21), GPIO_MODE_OUTPUT);
-    gpio_set_level(gpio_num_t(21), 1);
+    board.enableI2C();
+    // gpio_set_direction(gpio_num_t(21), GPIO_MODE_OUTPUT);
+    // gpio_set_level(gpio_num_t(21), 1);
+    gpio_set_direction(gpio_num_t(13), GPIO_MODE_OUTPUT);
+    gpio_set_level(gpio_num_t(13), 1);
 
     Protocols::I2CPort i2cPort0;
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)

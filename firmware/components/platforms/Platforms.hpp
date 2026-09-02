@@ -1,4 +1,5 @@
 #include <common/protocols/InterfaceProtocols.hpp>
+#include <driver/gpio.h>
 #include <cstddef>  
 
 
@@ -43,6 +44,17 @@ public:
      */
     virtual bool I2C(size_t portNumber, Protocols::I2CPort &port) { return false; }
 
+    /**
+     * @brief Virtual I2C Power Enable
+     * @return True if the platform power supports power enable (typically GPIO), false if the platform does not have this feature.
+     */
+    virtual bool enableI2C() { return false; }
+
+    /**
+     * @brief Virtual I2C Power Disable
+     * @return True if the platform power supports power disable (typically GPIO), false if the platform does not have this feature.
+     */
+    virtual bool disableI2C() { return false; }
 
 protected:
     Manufacturer manufacturer_;
@@ -66,7 +78,22 @@ public:
         }
     }
 
+    bool enableI2C() override {
+        gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT);
+        gpio_set_level(gpio_num_t(i2c_pwr_pin), 1);
+        return true;
+    }
+
+    bool disableI2C() override {
+        // Simple call to avoid confition that the GPIO_MODE_OUTPUT has not yet been set.
+        enableI2C();
+        gpio_set_level(gpio_num_t(i2c_pwr_pin), 0);
+        return true;
+    }
+
 private:
+    const int i2c_pwr_pin = 21;
+    const int led_pwr_pin = 13;
     static constexpr Protocols::I2CPort I2C_Port_0{
         .sda_pin = 42,
         .scl_pin = 41,

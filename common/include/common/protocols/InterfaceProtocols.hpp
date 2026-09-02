@@ -16,6 +16,7 @@ namespace Protocols {
         UART,  // UART on ESP32 or Jetson
         CAN,   // CAN on Jetson
         USB,   // USB on Jetson
+        GPIO,  // GPIO on Jetson or ESP32
         OTHER, // Any other interface
     };
 
@@ -63,6 +64,12 @@ namespace Protocols {
    };
     // Unit Library avoided, because fundamentally, units add a layer of complexity that is not needed for struct.
 
+    /**
+     * @brief Generic GPIO Pin
+     */
+   struct GPIOConfig {
+    uint8_t gpio_pin; // the GPIO Pin of interest.
+   };
 }
 }
 }
