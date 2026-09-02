@@ -75,3 +75,6 @@ compile_commands.json
 
 # Log files
 *.log
+
+.vscode/*
+.vscode/settings.json
