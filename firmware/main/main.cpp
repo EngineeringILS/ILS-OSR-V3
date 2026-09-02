@@ -7,6 +7,7 @@
 #include <Max1704x.hpp>
 #include <ina3221.hpp>
 #include <ina3221_test.hpp>
+#include <LED.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
 #include <stdexcept>
@@ -29,11 +30,7 @@ void app_main(void) {
     // 1. Setup Hardware
     Boards::FeatherS3TFT board;
     board.enableI2C();
-    // gpio_set_direction(gpio_num_t(21), GPIO_MODE_OUTPUT);
-    // gpio_set_level(gpio_num_t(21), 1);
-    gpio_set_direction(gpio_num_t(13), GPIO_MODE_OUTPUT);
-    gpio_set_level(gpio_num_t(13), 1);
-
+   
     Protocols::I2CPort i2cPort0;
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
     board.I2C(0, i2cPort0);
@@ -49,6 +46,9 @@ void app_main(void) {
     INA3221 ina3221(0x40, &i2cBus0);
     ina3221.init();
 
+    LED red_led(board.led_pwr_pin);
+    red_led.init();
+    
     // 2. Setup Terminal
     SerialIO Terminal;
     Terminal.init();
@@ -60,7 +60,7 @@ void app_main(void) {
     Terminal.serial_out(ioMsg);
     
     while (true) {
-        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', or 'q' to quit: \n";
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'blink', 'stopblink', or 'q' to quit: \n";
         Terminal.serial_out(ioMsg);
         ioMsg = "Input: ";
         ioMsg = Terminal.serial_in(ioMsg);
@@ -105,6 +105,10 @@ void app_main(void) {
         } else if (ioMsg == "read") {
             max1704x_test_data(Terminal, max1704x);
             ina3221_test_data(Terminal, ina3221);
+        } else if (ioMsg == "blink") {
+            red_led.blink();
+        } else if (ioMsg == "stopblink") {
+            red_led.off();
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");

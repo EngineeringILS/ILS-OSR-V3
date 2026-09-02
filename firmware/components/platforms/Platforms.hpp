@@ -91,9 +91,10 @@ public:
         return true;
     }
 
+    Protocols::GPIOConfig led_pwr_pin {.gpio_pin = 13};
+    
 private:
     const int i2c_pwr_pin = 21;
-    const int led_pwr_pin = 13;
     static constexpr Protocols::I2CPort I2C_Port_0{
         .sda_pin = 42,
         .scl_pin = 41,
