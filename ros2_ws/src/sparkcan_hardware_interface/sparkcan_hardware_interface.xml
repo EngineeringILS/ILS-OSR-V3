@@ -1,0 +1,9 @@
+<library path="sparkcan_hardware_interface">
+  <class name="sparkcan_hardware_interface/SparkCanHardwareInterface"
+         type="sparkcan_hardware_interface::SparkCanHardwareInterface"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Rev Robotics sparkcan system hardware interface for ros2_control.
+    </description>
+  </class>
+</library>

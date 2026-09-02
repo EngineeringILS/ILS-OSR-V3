@@ -1,8 +1,9 @@
 # Decoupled Python Library
 
 ### Purpose
-Provide a Pure Python Library that allows for the following:
+Provide a Pure Python Library / Python Tools that allows for the following:
 - DearPyGui Frontend Development Outside of ROS2
+- Roboclaw Manual Control Harness
 
 ### Key Requirements
 - Python with `venv` for proper development environment setup.
@@ -13,6 +14,9 @@ lunabotics-cdh-dev/python
 ├── frontend
 │   ├── dpg.py           # DearPyGUI frontend component
 │   ├── state_manager.py # Frontend API
+│   └── tests            # Tests written with Pytest
+├── motorcontrol
+│   ├── roboclaw.py      # Roboclaw Motor Control Harness
 │   └── tests            # Tests written with Pytest
 ├── README.md
 ```
