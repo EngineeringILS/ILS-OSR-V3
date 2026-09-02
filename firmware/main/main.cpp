@@ -6,6 +6,7 @@
 #include <Max1704x_test.hpp>
 #include <Max1704x.hpp>
 #include <ina3221.hpp>
+#include <ina3221_test.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
 #include <stdexcept>
@@ -41,6 +42,10 @@ void app_main(void) {
     // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
     Max1704x max1704x(0x36,&i2cBus0);
     max1704x.init();
+
+    INA3221 ina3221(0x40, &i2cBus0);
+    ina3221.init();
+
     // 2. Setup Terminal
     SerialIO Terminal;
     Terminal.init();
@@ -96,6 +101,7 @@ void app_main(void) {
             i2c_device_read(Terminal, max1704x, addresses, numAddresses);
         } else if (ioMsg == "read") {
             max1704x_test_data(Terminal, max1704x);
+            ina3221_test_data(Terminal, ina3221);
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");
