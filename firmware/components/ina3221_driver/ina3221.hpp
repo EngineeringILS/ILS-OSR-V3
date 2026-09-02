@@ -4,8 +4,9 @@
 #include <common/protocols/InterfaceProtocols.hpp>
 #include <i2c_driver.hpp>
 
-#ifndef LUNABOTICS_ina3221_DRIVER_HPP
-#define LUNABOTICS_ina3221_DRIVER_HPP
+
+#ifndef LUNABOTICS_INA3221_DRIVER_HPP
+#define LUNABOTICS_INA3221_DRIVER_HPP
 
 namespace Lunabotics {
 namespace ESP32 {
@@ -13,54 +14,62 @@ namespace Drivers {
 
 using namespace Lunabotics::Common;
 using namespace Lunabotics::Common::Sensors;
-
+using Resistance = Units::QuantityD<Units::Ohms>;
 
 /**
- * @brief A wrapper class that aligns the ina3221 driver with Lunabotics standards as a SensorInterface.
+ * @brief A wrapper class that aligns the INA3221 driver witxh ILS OSR V3 standards as a SensorInterface.
  * 
- * This class implements the SensorInterface and allows data reading capabilities and lifecycle functions for a ina3221 fuel-gauge sensor.
+ * This class implements the SensorInterface and allows data reading capabilities and lifecycle functions for a INA3221 multi-channel power measurement sensor.
  * 
  * @note This class may have updates to introduce new methods as needed (e.g. deep sleep), but the core functionality should stay the same.
  */
-class ina3221 : public I2CDevice, public SensorInterface {
+class INA3221 : public I2CDevice, public SensorInterface {
 public: 
 
     // Constructor and Destructor:
     /**
-     * @brief Constructor for the ina3221.
+     * @brief Constructor for the INA3221.
      * 
      * @param host The processor this driver is running on.
      * @param I2C_Config The platform specific protocols::I2CConfig for I2C operation.
      */
-    explicit ina3221(const uint8_t& addr, I2CBus* i2c_bus) : I2CDevice(addr, i2c_bus), SensorInterface(Protocols::InterfaceType::I2C, SensorInterface::HostController::ESP32) {}
+    explicit INA3221(const uint8_t& addr, 
+                    I2CBus* i2c_bus, 
+                    Resistance channel_1_shunt = Units::ohms(0.05),
+                    Resistance channel_2_shunt = Units::ohms(0.05),
+                    Resistance channel_3_shunt = Units::ohms(0.05)
+                ) : 
+                I2CDevice(addr, i2c_bus), 
+                SensorInterface(Protocols::InterfaceType::I2C, SensorInterface::HostController::ESP32),
+                channel_1_shunt_ohms_(channel_1_shunt),
+                channel_2_shunt_ohms_(channel_2_shunt),
+                channel_3_shunt_ohms_(channel_3_shunt) 
+            {}
 
     /**
      * @brief Virtual Destructor, both I2CDevice and SensorInterface posess suitable virtual destuctors which safely handle memory.
      */
-    virtual ~ina3221() = default;
+    virtual ~INA3221() = default;
 
     // Implementation of the pure virtual functions:
 
     /**
-     * @brief Initializes the ina3221.
+     * @brief Initializes the INA3221.
      * @return True on sucessful initialiation, False on failed initilization, check getErr().
      */
 
     bool init() override;
 
-    // TODO: The base SensorInterface.hpp does not yet have a standardized read() function; however, it is planned that it WILL, so this would need to become an override in future releases!!
     /**
-     * @brief Reads (TODO: DATA??).
-     * This function updates the current (TODO: DATA??)
-     * and stores it in the private _batteryData variable.
+     * @brief Reads Sensor Data into memory.
+     * This function queries the I2C Device Data
+     * and stores it in the private power_channel_data_ variable.
      * @return May return true or false.
      */ 
     bool read();
     
     // Sensor Specific Public Functions:
-    
-
-    void getData(DataTypes::BatteryData& data) const;
+    void getData(DataTypes::INA3221Data& data) const;
      
 private:
     // Private Member Variables:
@@ -68,7 +77,11 @@ private:
     /**
      * @brief Internal storage for the last-read sensor data.
      */
-    DataTypes::BatteryData battery_data_;
+    DataTypes::INA3221Data power_channel_data_;
+
+    Units::QuantityD<Units::Ohms> channel_1_shunt_ohms_;
+    Units::QuantityD<Units::Ohms> channel_2_shunt_ohms_;
+    Units::QuantityD<Units::Ohms> channel_3_shunt_ohms_;
 
 
     /**
@@ -100,21 +113,36 @@ private:
         DIE_ID                   = 0xFF  // RO: INA3221 device identification; expected value is 0x3220.
     };
 
+    // Constants needed by init():
+    static constexpr uint16_t EXPECTED_MANUFACTURER_ID = 0x5449;
+    static constexpr uint16_t EXPECTED_DIE_ID          = 0x3220;
+    static constexpr uint16_t CONFIG_POWER_DOWN        = 0x7120;
+    static constexpr uint16_t CONFIG_BUS_SINGLE_SHOT   = 0x7122;
+    static constexpr uint16_t CONFIG_CONTINUOUS        = 0x7127;
+
     /**
      * @brief Register helper function (converts scoped enum to true uint8_t).
      * @param reg The register to convert to a uint8_t.
      * @returns uint8_t reg.
      */
-    uint8_t reg(DataRegisters reg) {
+    static constexpr uint8_t reg(DataRegisters reg) {
         return static_cast<uint8_t>(reg);
     }
-
-    // enum class RegisterFeatures : uint8_t {
-    //     RO,  // Readonly Flag
-    //     WO,  // Writeonly Flag
-    //     RW   // Read/Write Flag
-    // }
     
+    /**
+     * @brief Helper function to convert calculate channel conversion.
+     * @param shunt_register The shunt-voltage measurement
+     * @param bus_register The bus-voltage measurement
+     * @param shunt_Resistance The shunt resistance
+     * @param channel_data The channel data object
+     */
+    bool readChannel(
+        DataRegisters shunt_register,
+        DataRegisters bus_register,
+        const Resistance& shunt_resistance,
+        DataTypes::PowerChannelData& channel_data
+    );
+
 };
 } // namespace Sensors
 } // namespace Common
