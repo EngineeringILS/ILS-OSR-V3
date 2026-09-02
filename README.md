@@ -49,7 +49,7 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 
 # Visibility & Open-Source Policy
 
-> This repository is will be made open source upon project completion.
+> This repository is source available, and will have an appropriate open source license applied upon project completion.
 
 
 ## Project Contributors
@@ -57,3 +57,4 @@ Generally, it is recommended to use a Windows 11 based system for development, w
 This project is actively developed and maintained by the Engineering ILS Foundation:
 
 * **Aden Mann** - [@Aden-M](https://github.com/Aden-M) - President
+
