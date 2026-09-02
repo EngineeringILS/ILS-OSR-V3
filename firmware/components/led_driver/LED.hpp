@@ -63,7 +63,7 @@ public:
     /**
      * @brief Deinitializes the LED and releases the GPIO.
      */
-    void deinit();
+    virtual void deinit();
 
     /**
      * @brief Turns the LED on and stops any active blink timer.
@@ -110,9 +110,27 @@ public:
      */
     Protocols::GPIOConfig getConfig() const { return config_; }
 
+protected:
+    /**
+     * @brief Applies a logical LED state to the underlying hardware.
+     *
+     * Derived LED drivers can override this function while retaining the
+     * common on/off and nonblocking blink behavior.
+     */
+    virtual bool setLevel(const bool &is_on);
+
+    /**
+     * @brief Updates the logical state after a derived driver changes hardware.
+     */
+    void setLogicalState(const bool &is_on) { is_on_.store(is_on); }
+
+    /**
+     * @brief Updates the most recent ESP-IDF error from a derived driver.
+     */
+    void setErr(const esp_err_t &err) { err_ = err; }
+
 private:
     static void blinkCallback(void* arg);
-    bool setLevel(const bool &is_on);
 
     const Protocols::GPIOConfig config_;
     const bool active_high_;
