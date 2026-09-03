@@ -11,7 +11,7 @@ void channel_data_to_str(
     double current = channel.current.in(Units::amperes);
     double power = channel.power.in(Units::watts);
     output.clear();
-    output += "[Channel " + std::to_string(channel_num) + "\n";
+    output += "[Channel " + std::to_string(channel_num) + "]\n";
     output += "Bus Voltage (V): " + std::to_string(bus_voltage) + "\n";
     output += "Shunt Voltage (V): " + std::to_string(shunt_voltage) + "\n";
     output += "Current (A): " + std::to_string(current) + "\n ";

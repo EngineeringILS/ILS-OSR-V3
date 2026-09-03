@@ -63,7 +63,7 @@ void Neopixel::disablePower() {
 }
 
 bool Neopixel::init() {
-    if (_State == SensorState::CONNECTED) {
+    if (_State == PeripheralState::CONNECTED) {
         return true;
     }
 
@@ -73,14 +73,14 @@ bool Neopixel::init() {
     if (!GPIO_IS_VALID_OUTPUT_GPIO(data_pin) ||
         config_.pixel_count == 0) {
         setErr(ESP_ERR_INVALID_ARG);
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
-    _State = SensorState::INITIALIZED;
+    _State = PeripheralState::INITIALIZED;
 
     if (!configurePower()) {
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
@@ -106,7 +106,7 @@ bool Neopixel::init() {
     if (getErr() != ESP_OK) {
         strip_handle_ = nullptr;
         disablePower();
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
@@ -115,12 +115,12 @@ bool Neopixel::init() {
         led_strip_del(strip_handle_);
         strip_handle_ = nullptr;
         disablePower();
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
     setLogicalState(false);
-    _State = SensorState::CONNECTED;
+    _State = PeripheralState::CONNECTED;
     return true;
 }
 
@@ -135,13 +135,13 @@ void Neopixel::deinit() {
 
     disablePower();
     setLogicalState(false);
-    _State = SensorState::UNINITIALIZED;
+    _State = PeripheralState::UNINITIALIZED;
 }
 
 bool Neopixel::writeColors() {
     if (strip_handle_ == nullptr) {
         setErr(ESP_ERR_INVALID_STATE);
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
@@ -156,14 +156,14 @@ bool Neopixel::writeColors() {
         ));
 
         if (getErr() != ESP_OK) {
-            _State = SensorState::ERROR;
+            _State = PeripheralState::ERROR;
             return false;
         }
     }
 
     setErr(led_strip_refresh(strip_handle_));
     if (getErr() != ESP_OK) {
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
@@ -173,7 +173,7 @@ bool Neopixel::writeColors() {
 bool Neopixel::setLevel(const bool &is_on) {
     if (strip_handle_ == nullptr) {
         setErr(ESP_ERR_INVALID_STATE);
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
@@ -184,13 +184,13 @@ bool Neopixel::setLevel(const bool &is_on) {
     } else {
         setErr(led_strip_clear(strip_handle_));
         if (getErr() != ESP_OK) {
-            _State = SensorState::ERROR;
+            _State = PeripheralState::ERROR;
             return false;
         }
     }
 
     setLogicalState(is_on);
-    _State = SensorState::CONNECTED;
+    _State = PeripheralState::CONNECTED;
     return true;
 }
 

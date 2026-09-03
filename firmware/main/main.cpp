@@ -7,10 +7,12 @@
 #include <Max1704x.hpp>
 #include <ina3221.hpp>
 #include <ina3221_test.hpp>
+#include <Neopixel.hpp>
 #include <LED.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
 #include <stdexcept>
+#include <drivers/interactive_shell.hpp>
 
 
 using namespace Lunabotics::Common::Sensors;
@@ -53,6 +55,24 @@ void app_main(void) {
     SerialIO Terminal;
     Terminal.init();
     
+    Drivers::NeopixelConfig neopixel_config{
+    .data = {.gpio_pin = 33},
+    .pixel_count = 1,
+    .spi_host = SPI2_HOST,
+    .with_dma = true,
+    .invert_out = false,
+    .has_power_pin = true,
+    .power = {.gpio_pin = 34},
+    .power_active_high = true
+    };
+
+    Drivers::Neopixel neopixel(neopixel_config);
+
+    if (neopixel.init()) {
+        neopixel.setColor(0, 255, 0);
+        neopixel.on();
+    }
+
     // 3. User Interaction Loop
     std::string ioMsg;
     ioMsg.reserve(512);
@@ -106,9 +126,11 @@ void app_main(void) {
             max1704x_test_data(Terminal, max1704x);
             ina3221_test_data(Terminal, ina3221);
         } else if (ioMsg == "blink") {
-            red_led.blink();
+            red_led.blink(500);
+            neopixel.blink(500);
         } else if (ioMsg == "stopblink") {
-            red_led.off();
+            red_led.stopBlink();
+            neopixel.stopBlink();
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");

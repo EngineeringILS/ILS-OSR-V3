@@ -9,18 +9,18 @@ LED::~LED() {
 }
 
 bool LED::init() {
-    if (_State == SensorState::CONNECTED) {
+    if (_State == PeripheralState::CONNECTED) {
         return true;
     }
 
     const gpio_num_t gpio_pin = static_cast<gpio_num_t>(config_.gpio_pin);
     if (!GPIO_IS_VALID_OUTPUT_GPIO(gpio_pin)) {
         err_ = ESP_ERR_INVALID_ARG;
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
-    _State = SensorState::INITIALIZED;
+    _State = PeripheralState::INITIALIZED;
 
     gpio_config_t gpio_config_data = {};
     gpio_config_data.pin_bit_mask = 1ULL << config_.gpio_pin;
@@ -31,7 +31,7 @@ bool LED::init() {
 
     err_ = gpio_config(&gpio_config_data);
     if (err_ != ESP_OK) {
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
     initialized_ = true;
@@ -40,12 +40,12 @@ bool LED::init() {
     if (err_ != ESP_OK) {
         gpio_reset_pin(gpio_pin);
         initialized_ = false;
-        _State = SensorState::FAILED;
+        _State = PeripheralState::FAILED;
         return false;
     }
 
     is_on_.store(false);
-    _State = SensorState::CONNECTED;
+    _State = PeripheralState::CONNECTED;
     return true;
 }
 
@@ -64,7 +64,7 @@ void LED::deinit() {
     }
 
     is_on_.store(false);
-    _State = SensorState::UNINITIALIZED;
+    _State = PeripheralState::UNINITIALIZED;
 }
 
 bool LED::setLevel(const bool &is_on) {
@@ -75,7 +75,7 @@ bool LED::setLevel(const bool &is_on) {
     );
 
     if (err_ != ESP_OK) {
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
@@ -84,8 +84,8 @@ bool LED::setLevel(const bool &is_on) {
 }
 
 bool LED::on() {
-    if (_State != SensorState::CONNECTED &&
-        _State != SensorState::ERROR) {
+    if (_State != PeripheralState::CONNECTED &&
+        _State != PeripheralState::ERROR) {
         return false;
     }
 
@@ -97,8 +97,8 @@ bool LED::on() {
 }
 
 bool LED::off() {
-    if (_State != SensorState::CONNECTED &&
-        _State != SensorState::ERROR) {
+    if (_State != PeripheralState::CONNECTED &&
+        _State != PeripheralState::ERROR) {
         return false;
     }
 
@@ -110,8 +110,8 @@ bool LED::off() {
 }
 
 bool LED::blink(const uint32_t &interval_ms) {
-    if ((_State != SensorState::CONNECTED &&
-         _State != SensorState::ERROR) ||
+    if ((_State != PeripheralState::CONNECTED &&
+         _State != PeripheralState::ERROR) ||
         interval_ms == 0) {
         err_ = ESP_ERR_INVALID_ARG;
         return false;
@@ -127,7 +127,7 @@ bool LED::blink(const uint32_t &interval_ms) {
 
         err_ = esp_timer_create(&timer_args, &blink_timer_);
         if (err_ != ESP_OK) {
-            _State = SensorState::ERROR;
+            _State = PeripheralState::ERROR;
             return false;
         }
     }
@@ -142,11 +142,11 @@ bool LED::blink(const uint32_t &interval_ms) {
     );
 
     if (err_ != ESP_OK) {
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
-    _State = SensorState::CONNECTED;
+    _State = PeripheralState::CONNECTED;
     return true;
 }
 
@@ -158,7 +158,7 @@ bool LED::stopBlink() {
 
     err_ = esp_timer_stop(blink_timer_);
     if (err_ != ESP_OK) {
-        _State = SensorState::ERROR;
+        _State = PeripheralState::ERROR;
         return false;
     }
 
