@@ -14,7 +14,10 @@ from adafruit_motor.servo import Servo
 # Fixing Function Input Types:
 import typing
 from typing import Any
-from .servo_types import ServoConfig
+try:
+    from .servo_types import ServoConfig
+except ImportError:
+    from servo_types import ServoConfig
 
 # For Active Input:
 import sys
@@ -88,12 +91,12 @@ def testing_servo_movement_loop(servo: ServoKit, channel: int, step_degrees, max
     org_term_settings = termios.tcgetattr(fd)
 
     selected_servo = servo.servo[channel]
+    selected_servo.set_pulse_width_range(500,2500)
     movement_loop = True
-    selected_servo.actuation_range = max_angle
-    current_angle = selected_servo.angle
-    if current_angle is None:
-        current_angle = 90
-        selected_servo.angle = current_angle
+    selected_servo.actuation_range = 300
+    current_angle = set_start_point
+    selected_servo.angle = current_angle
+  
     
     try:
         if (debug):
@@ -166,6 +169,9 @@ def servo_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: li
     org_term_settings = termios.tcgetattr(fd)
     movement_loop = True
     
+    for servo in servos:
+        servo.set_pulse_width_range(500, 2500)
+        servo.actuation_range = 300
     try:
         if (debug):
             print(f"Controlling servos {configs[0].name}, {configs[1].name}. ")
@@ -230,6 +236,7 @@ def servo_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: li
 def servodriver_setzeroes(servodriver: ServoKit, s0_pos : float, s1_pos : float, s2_pos : float, s3_pos : float):
     servos =  [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
     for servo in servos:
+        servo.set_pulse_width_range(500, 2500)
         servo.actuation_range = 300
 
     # Pylint sucks:

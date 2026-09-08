@@ -52,6 +52,10 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
     org_term_settings = termios.tcgetattr(fd)
 
     try:
+        servo_methods.hold_zeroes(
+            active_servos=servos,
+            active_configs=configs,
+        )
         while True:
             tty.setraw(fd)
             
@@ -70,13 +74,13 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 servo_methods.hold_angle(servo=servos[3], config=configs[3])
 
             if movement =="r":
-                speed = 500
+                speed = 250
             if movement == "t":
-                speed = 1000
+                speed = 500
             if movement == "y":
-                speed = 2000
+                speed = 1000
             if movement == "u":
-                speed = 3200
+                speed = 2000
 
             if movement == "q":
                 servo_methods.turn_servos(active_servos=[servos[0], servos[3]], active_configs=[configs[0], configs[3]], step=step_degrees, step_down=True)
@@ -107,7 +111,13 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 servo_methods.hold_angle(servo=servos[1], config=configs[1])
                 servo_methods.hold_angle(servo=servos[2], config=configs[2])
                 servo_methods.hold_angle(servo=servos[3], config=configs[3])
-                
+
+            elif movement == "g":
+                poor_mans_ackermann(servos, configs)
+
+            elif movement == "h":
+                poor_mans_ackermann(servos, configs, reverse=True)
+
             elif movement == "s":
                 macro_set_motor_speed(motors=motors, speed=-speed)
                 roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
@@ -142,3 +152,36 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, org_term_settings)
     return
+
+
+def poor_mans_ackermann(servos, configs, reverse=False):
+    if len(servos) != 4 or len(configs) != 4:
+        raise ValueError("Expected four servos and matching configs.")
+
+    targets = []
+
+    for index, (servo, config) in enumerate(zip(servos, configs)):
+        # Same directions as A + Q; reverse gives D + E.
+        step_up = (index in (0, 2)) != reverse
+        step = config.step_up if step_up else config.step_down
+        target = step(config.straight, 45.0)
+
+        # Validate every target before moving any servo.
+        if (
+            not config.min_safe <= target <= config.max_safe
+            or not 0 <= target <= servo.actuation_range
+            or abs(abs(target - config.straight) - 45.0) > 1e-6
+        ):
+            print(
+                f"45-degree mode unavailable: {config.name} "
+                "would exceed its limits.",
+                end="\r\n",
+            )
+            return False
+
+        targets.append(target)
+
+    for servo, target in zip(servos, targets):
+        servo.angle = target
+
+    return True

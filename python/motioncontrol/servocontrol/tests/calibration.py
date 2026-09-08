@@ -23,12 +23,12 @@ servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pw
 
 def calibration():
     methods.servodriver_setup(servo=servodriver, pwm_frequency=pwm_frequency, i2c_address=i2c_address)
-    methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=s0_params[1], s1_pos=s1_params[1], s2_pos=s2_params[1], s3_pos=s3_params[1])
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=s0_params[1], channel=0, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=s1_params[1], channel=1, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=s2_params[1], channel=2, debug=True)
-    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=s3_params[1], channel=3, debug=True)
-    methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=s0_params[1], s1_pos=s1_params[1], s2_pos=s2_params[1], s3_pos=s3_params[1])
+    # methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=s0_params[1], s1_pos=s1_params[1], s2_pos=s2_params[1], s3_pos=s3_params[1])
+    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=s0_params[2], min_angle=s0_params[0], set_start_point=s0_params[1], channel=0, debug=True)
+    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=s1_params[2], min_angle=s1_params[0], set_start_point=s1_params[1], channel=1, debug=True)
+    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=s2_params[2], min_angle=s2_params[0], set_start_point=s2_params[1], channel=2, debug=True)
+    methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=s3_params[2], min_angle=s3_params[0], set_start_point=s3_params[1], channel=3, debug=True)
+    # methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=s0_params[1], s1_pos=s1_params[1], s2_pos=s2_params[1], s3_pos=s3_params[1])
 
 
 if __name__ == "__main__":
