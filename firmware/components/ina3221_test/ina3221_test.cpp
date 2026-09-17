@@ -35,7 +35,7 @@ void ina3221_test_data(SerialIO &terminal, INA3221 &device) {
         terminal.serial_out(channel_output);
         channel_data_to_str(2, data.channel_2, channel_output);
         terminal.serial_out(channel_output);
-        channel_data_to_str(3, data.channel_2, channel_output);
+        channel_data_to_str(3, data.channel_3, channel_output);
         terminal.serial_out(channel_output);
 
     }

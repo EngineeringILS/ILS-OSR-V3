@@ -11,8 +11,9 @@
 #include <LED.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
-#include <stdexcept>
-#include <drivers/interactive_shell.hpp>
+#include <cerrno>
+#include <cstdlib>
+#include <freertos/task.h>
 
 
 using namespace Lunabotics::Common::Sensors;
@@ -92,29 +93,28 @@ void app_main(void) {
         else if (ioMsg == "scan") {
             i2c_scan(Terminal, i2cBus0);
         }
-        else if (ioMsg.size() >= 4 && ioMsg.substr(0, 4) == "dump") {
+        else if (ioMsg == "dump" || ioMsg.compare(0, 5, "dump ") == 0) {
             // Default to MAX17048
             uint8_t targetAddr = 0x36;
 
-            if (ioMsg.size() > 5) {
+            if (ioMsg.size() > 4) {
                 std::string arg = ioMsg.substr(5);
                 
-                // --- REPLACEMENT LOGIC START ---
                 char* endPtr;
-                // strtoul(string, end_pointer, base 0 for auto-detect)
+                // Accept hexadecimal or decimal 7-bit device addresses.
+                errno = 0;
                 unsigned long val = strtoul(arg.c_str(), &endPtr, 0);
 
                 // check if conversion failed:
                 // 1. endPtr == arg.c_str() -> No digits found
                 // 2. *endPtr != '\0'       -> Junk characters at end (e.g. "0x36xyz")
-                // 3. val > 255             -> Address too big for I2C
-                if (endPtr == arg.c_str() || *endPtr != '\0' || val > 255) {
+                // 3. Overflow or an address outside the 7-bit range
+                if (endPtr == arg.c_str() || *endPtr != '\0' || errno == ERANGE || val > 0x7F) {
                     Terminal.serial_out("Invalid address. Usage: dump <hex|dec>\n");
-                    return; // Changed from continue if inside a void function
+                    continue;
                 }
                 
                 targetAddr = static_cast<uint8_t>(val);
-                // --- REPLACEMENT LOGIC END ---
             }
 
             i2c_dump(Terminal, i2cBus0, targetAddr, 1);

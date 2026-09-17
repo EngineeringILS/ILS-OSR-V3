@@ -9,15 +9,14 @@ namespace Common {
 namespace Sensors {
 
 /**
- * @brief Abstract interface for all hardware sensors in the project.
- * TODO: Improve documentation for the common sensor interface.
+ * @brief Abstract interface for hardware peripherals in the project.
  */
 class PeripheralInterface{
 public:
     /**
-    * @brief Defines the current operational state of the sensor.
+    * @brief Defines the current operational state of the peripheral.
      */
-    enum class SensorState : uint8_t {
+    enum class PeripheralState : uint8_t {
         UNINITIALIZED, // Driver created, but init() not called
         INITIALIZED,   // init() called, but comms not confirmed
         CONNECTED,     // Comms established, ready to read
@@ -26,10 +25,8 @@ public:
         FAILED         // A hardware or unrecoverable error
     };
 
-    // InterfaceType migrated to InterfaceProtocols.hpp
-
     /**
-     * @brief Defines which processor is directly handling the sensor driver.
+     * @brief Defines which processor is directly handling the peripheral driver.
      * @note This could potentially provide future functionality where configurations leverage the ESP32 for sensor passthrough/publishing.
      */
     enum class HostController : uint8_t {
@@ -38,13 +35,13 @@ public:
     };
 
     /** 
-     * @brief Constructor to set the fixed properties of the senesor.
+     * @brief Constructor to set the fixed properties of the peripheral.
      * 
      * @param interface the bus type (I2C, SPI, etc...)
      * @param host The host processor this driver is running on (OBC, ESP32)
      */
     explicit PeripheralInterface(Protocols::InterfaceType interface, HostController host) : 
-        _State(SensorState::UNINITIALIZED),
+        _State(PeripheralState::UNINITIALIZED),
         _Interface(interface),
         _Host(host)
     {}
@@ -54,24 +51,24 @@ public:
      */
     virtual ~PeripheralInterface() = default;
 
-    // Virtual Functions to implement in Child Sensor Drivers, these must be implemented in the Child class!
+    // Virtual Functions to implement in Child Peripheral Drivers:
 
     /**
-     * @brief Initializes the sensor hardware.
+     * @brief Initializes the peripheral hardware.
      * Connects, runs self-tests, and sets configuration.
-     * Should update m_state to CONNECTED or FAILED
+     * Should update _State to CONNECTED or FAILED.
      * 
-     * @return True on succesful read, false on failure
+     * @return True on successful initialization, false on failure.
      */
     virtual bool init() = 0;
 
     // Implemented Functions:
-    // These are common to all sensors and are provided by the base class.
+    // These are common to all peripherals and are provided by the base class.
 
     /**
-     * @brief Gets the current state of the sensor.
+     * @brief Gets the current state of the peripheral.
      */
-    SensorState getState() const { return _State; }
+    PeripheralState getState() const { return _State; }
 
     /**
      * @brief Gets the interface (I2C, SPI, etc...).
@@ -86,18 +83,18 @@ public:
 
 protected:
     /**
-     * @brief The current state of the sensor.
-     * Child classes MUST update this variable in their init() and read() functions.
+     * @brief The current state of the peripheral.
+     * Child classes MUST update this variable during initialization and hardware operations.
      */
-    SensorState _State;
+    PeripheralState _State;
 
     /**
-     * @brief The fixed interface type for this sensor.
+     * @brief The fixed interface type for this peripheral.
      */
     const Protocols::InterfaceType _Interface;
 
     /**
-     * @brief the fixed host controller for this sensor driver.
+     * @brief The fixed host controller for this peripheral driver.
      */
     const HostController _Host;
     
@@ -105,4 +102,4 @@ protected:
 } // namespace Sensors
 } // namespace Common
 } // namespace Lunabotics
-#endif 
+#endif

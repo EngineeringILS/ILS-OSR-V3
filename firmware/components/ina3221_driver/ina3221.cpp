@@ -135,6 +135,6 @@ void INA3221::getData(DataTypes::INA3221Data& data) const {
 
 
 
-} // namespace Sensors
-} // namespace Common
+} // namespace Drivers
+} // namespace ESP32
 } // namespace Lunabotics

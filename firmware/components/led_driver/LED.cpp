@@ -80,6 +80,7 @@ bool LED::setLevel(const bool &is_on) {
     }
 
     is_on_.store(is_on);
+    _State = PeripheralState::CONNECTED;
     return true;
 }
 

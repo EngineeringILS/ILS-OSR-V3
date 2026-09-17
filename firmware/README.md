@@ -18,9 +18,18 @@ Provide a Wi-Fi/Serial command interface for:
 4. The filesystem structure of this module is below:
 ```
 lunabotics-cdh-dev/firmware
-├── drivers # ESP32 drivers derived from base classes in /common
-├── main  # ESP32 app_main() in main.cpp
-└── tests # ESP32 platform specific tests.
+├── components
+│   ├── platforms # Board pin mappings and power control
+│   ├── i2c_driver # ESP-IDF bus and device wrappers
+│   ├── i2c_tools # Interactive bus diagnostics
+│   ├── ina3221_driver # Three-channel power monitor
+│   ├── max1704x_driver # Battery fuel gauge
+│   ├── led_driver # GPIO LED and SPI NeoPixel drivers
+│   ├── SerialIO # USB serial JTAG console
+│   ├── ina3221_test # Power monitor hardware test output
+│   └── max1704x_test # Fuel gauge hardware test output
+├── main # app_main() and interactive hardware test loop
+└── tests # Host regression tests with emulated transport
 
 lunabotics-cdh-dev/common
 ├── include  
@@ -37,3 +46,24 @@ lunabotics-cdh-dev/common
 1. Plan before programming, document program plans in `/documentation`
 2. Ensure adherence to `/common` libraries and communication standards.
 3. Create unit tests for `/firmware` specific functionality and `/common` specific functionality.
+
+### Build and Test
+1. Activate ESP-IDF v5.4.3 and enter `firmware`.
+2. Run `idf.py set-target esp32s3`, then `idf.py build`.
+3. With a supported board connected, run `idf.py -p <port> flash monitor`.
+
+The current application targets FeatherS3TFT. Commands include `check`, `scan`,
+`dump <hex|dec>`, `checkread`, `read`, `blink`, `stopblink`, and `q`.
+Hardware test components print measurements; they do not replace automated tests.
+
+### Host Regression Tests
+```bash
+cmake -S firmware/tests -B firmware/tests/build
+cmake --build firmware/tests/build
+ctest --test-dir firmware/tests/build --output-on-failure
+```
+
+These tests use emulated I2C and serial transports to check conversions,
+failed-read recovery, sample preservation, resource ownership, and long output.
+
+> Note: Shared interfaces remain in `common`; ESP-IDF handles and board-specific operations belong in firmware components.

@@ -12,5 +12,5 @@ idf_component_register(
              i2c_driver
              i2c_tools
              led_driver
-               # Automatically Include and Register the Common Library as a Requirement
+             platforms
 )
