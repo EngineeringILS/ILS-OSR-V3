@@ -4,8 +4,6 @@
 
 using namespace Lunabotics::Common;
 using namespace Lunabotics::ESP32::Drivers;
-using AG = LSM9DS1::AGRegister;
-using MAG = LSM9DS1::MagRegister;
 using State = Sensors::SensorInterface::SensorState;
 
 #define CHECK(condition) do { if (!(condition)) { \
@@ -38,19 +36,15 @@ int main() {
             for (const uint8_t mag : {0x1C, 0x1E}) {
                 TestI2C::banks[ag][0x0F] = 0x68;
                 TestI2C::banks[mag][0x0F] = 0x3D;
-                LSM9DS1 imu(&bus, ag, mag);
+                LSM9DS1 imu(ag, &bus, mag);
                 CHECK(!imu.read());
                 CHECK(imu.init());
                 CHECK(imu.getState() == State::CONNECTED);
                 CHECK(TestI2C::banks[ag][0x22] == 0x44);
                 CHECK(TestI2C::banks[mag][0x24] == 0x40);
-                CHECK(!imu.hasData());
-                bool ready = true;
-                CHECK(imu.dataReady(ready) && !ready);
                 CHECK(!imu.read() && imu.getErr() == ESP_ERR_NOT_FINISHED);
                 sample(ag, mag);
-                CHECK(imu.dataReady(ready) && ready);
-                CHECK(imu.read() && imu.hasData());
+                CHECK(imu.read());
                 DataTypes::LSM9DS1Data data;
                 imu.getData(data);
                 CHECK(near(data.acceleration.a_x.in(Units::meters / Units::squared(Units::seconds)), 0.59820565));
@@ -80,62 +74,41 @@ int main() {
                 CHECK(imu.read());
                 CHECK(imu.getState() == State::CONNECTED);
 
-                uint8_t value = 99;
-                CHECK(!imu.readRegister(static_cast<AG>(0x25), value) && value == 99);
-                CHECK(!imu.writeRegister(AG::WHO_AM_I, 0));
-                CHECK(!imu.writeRegister(MAG::OUT_X_L, 0));
-                CHECK(!imu.writeRegister(MAG::CTRL_REG3, 0x80));
-                CHECK(!imu.writeRegister(AG::CTRL_REG9, 0x04));
-
-                // Conversion follows hardware ranges, including advanced register writes.
+                // Emulate changed hardware ranges to verify conversion decoding.
                 constexpr double scales[] = {0.061, 0.732, 0.122, 0.244};
                 for (uint8_t range = 0; range < 4; ++range) {
-                    CHECK(imu.writeRegister(AG::CTRL_REG6_XL, 0x60 | (range << 3)));
+                    TestI2C::banks[ag][0x20] = 0x60 | (range << 3);
                     CHECK(imu.read());
                     imu.getData(data);
                     CHECK(near(data.acceleration.a_x.in(Units::meters / Units::squared(Units::seconds)), scales[range] * 9.80665));
-                    CHECK(imu.writeRegister(MAG::CTRL_REG2, range << 5));
+                    TestI2C::banks[mag][0x21] = range << 5;
                     CHECK(imu.read());
                     imu.getData(data);
                     constexpr double magnetic[] = {0.14, 0.29, 0.43, 0.58};
                     CHECK(near(data.magnetic_field.x.in(Units::tesla), 100 * magnetic[range] * 1e-7));
                 }
-                CHECK(imu.writeRegister(AG::CTRL_REG8, 0x46));
+                TestI2C::banks[ag][0x22] = 0x46;
                 CHECK(!imu.read() && imu.getErr() == ESP_ERR_INVALID_STATE);
-                CHECK(imu.reset());
+                CHECK(imu.init());
                 sample(ag, mag);
                 for (const uint8_t range : {0, 1, 3}) {
-                    CHECK(imu.writeRegister(AG::CTRL_REG1_G, 0x60 | (range << 3)));
+                    TestI2C::banks[ag][0x10] = 0x60 | (range << 3);
                     CHECK(imu.read());
                     imu.getData(data);
                     constexpr double gyroscope[] = {8.75, 17.5, 0, 70};
                     CHECK(near(data.angular_velocity.x.in(Units::radians / Units::seconds),
                         -100 * gyroscope[range] * 0.001 * 3.14159265358979323846 / 180));
                 }
-                CHECK(imu.writeRegister(AG::CTRL_REG9, 0x02));
+                TestI2C::banks[ag][0x23] = 0x02;
                 CHECK(!imu.read() && imu.getErr() == ESP_ERR_INVALID_STATE);
-                CHECK(imu.writeRegister(AG::CTRL_REG9, 0));
-                CHECK(imu.writeRegister(MAG::CTRL_REG5, 0xC0));
+                TestI2C::banks[ag][0x23] = 0;
+                TestI2C::banks[mag][0x24] = 0xC0;
                 CHECK(!imu.read() && imu.getErr() == ESP_ERR_INVALID_STATE);
-                CHECK(imu.reset());
-                auto invalid = imu.getConfig();
-                invalid.gyro_range = static_cast<LSM9DS1::GyroRange>(2);
-                const auto transactions = TestI2C::transactions;
-                CHECK(!imu.configure(invalid));
-                CHECK(TestI2C::transactions == transactions);
-                CHECK(imu.powerDown());
-                CHECK(TestI2C::banks[ag][0x10] == 0 && TestI2C::banks[ag][0x20] == 0);
-                CHECK(TestI2C::banks[mag][0x22] == 3);
-                CHECK(!imu.read());
-                CHECK(imu.reset());
-                CHECK(imu.deinit());
-                CHECK(imu.getState() == State::UNINITIALIZED);
-                CHECK(imu.deinit());
                 CHECK(imu.init());
             }
         }
 
-        LSM9DS1 imu(&bus);
+        LSM9DS1 imu(0x6B, &bus);
         TestI2C::banks[0x1E][0x0F] = 0;
         CHECK(!imu.init() && imu.getState() == State::FAILED);
         TestI2C::banks[0x1E][0x0F] = 0x3D;
@@ -157,14 +130,6 @@ int main() {
         CHECK(raw.getRXErr() == ESP_ERR_INVALID_ARG);
         CHECK(TestI2C::transactions == transactions);
 
-        // A lost slave must not prevent the other block from powering down.
-        TestI2C::fail_address = 0x6B;
-        TestI2C::fail_write_register = 0x10;
-        CHECK(!imu.deinit());
-        CHECK(TestI2C::banks[0x1E][0x22] == 3);
-        CHECK(imu.getState() == State::UNINITIALIZED);
-        TestI2C::fail_address = -1;
-        TestI2C::fail_write_register = -1;
     }
     CHECK(TestI2C::devices == 0 && TestI2C::buses == 0);
     std::cout << "LSM9DS1 register, conversion, lifecycle, and failure tests passed.\n";

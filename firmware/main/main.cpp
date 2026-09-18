@@ -57,7 +57,7 @@ void app_main(void) {
     SerialIO Terminal;
     Terminal.init();
 
-    Drivers::LSM9DS1 imu(&i2cBus0);
+    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
     if (!imu.init()) {
         Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
     }
@@ -87,7 +87,7 @@ void app_main(void) {
     Terminal.serial_out(ioMsg);
     
     while (true) {
-        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'imustop', 'blink', 'stopblink', or 'q': \n";
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', or 'q': \n";
         Terminal.serial_out(ioMsg);
         ioMsg = "Input: ";
         ioMsg = Terminal.serial_in(ioMsg);
@@ -134,11 +134,8 @@ void app_main(void) {
         } else if (ioMsg == "imu") {
             lsm9ds1_test_data(Terminal, imu);
         } else if (ioMsg == "imuinit") {
-            Terminal.serial_out(imu.reset() ? "LSM9DS1 [INIT OK]\n" :
+            Terminal.serial_out(imu.init() ? "LSM9DS1 [INIT OK]\n" :
                 "LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
-        } else if (ioMsg == "imustop") {
-            Terminal.serial_out(imu.powerDown() ? "LSM9DS1 [STOPPED]\n" :
-                "LSM9DS1 [STOP FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
         } else if (ioMsg == "blink") {
             red_led.blink(500);
             neopixel.blink(500);
@@ -159,7 +156,6 @@ void app_main(void) {
     }
 
     // 4. Cleanup
-    imu.deinit();
     Terminal.deinit();
     
     // In a real RTOS app, app_main should not return, but for a test, this is fine.

@@ -2,7 +2,7 @@
 
 ### Implementation Plan
 1. Derive the IMU from `SensorInterface` and use `I2CDevice` for each internal slave.
-2. Define both complete register maps, lifecycle methods, configuration, and unit-aware samples.
+2. Define private register maps, initialization, and unit-aware samples using the existing driver layout.
 3. Add an interactive hardware test and host regression tests.
 4. Validate the ESP32-S3 build and submit a draft PR for hardware validation before review.
 
@@ -18,5 +18,5 @@
 
 ### Hardware Test Entry Point
 - [Driver usage and hardware checklist](../firmware/components/lsm9ds1_driver/README.md)
-- Console commands: `scan`, `imuinit`, `imu`, and `imustop`.
+- Console commands: `scan`, `imuinit`, and `imu`.
 - Feature branch includes the preceding sensor-integration repair commit required for the firmware build.

@@ -55,7 +55,7 @@ lunabotics-cdh-dev/common
 3. With a supported board connected, run `idf.py -p <port> flash monitor`.
 
 The current application targets FeatherS3TFT. Commands include `check`, `scan`,
-`dump <hex|dec>`, `checkread`, `read`, `imu`, `imuinit`, `imustop`, `blink`, `stopblink`, and `q`.
+`dump <hex|dec>`, `checkread`, `read`, `imu`, `imuinit`, `blink`, `stopblink`, and `q`.
 Hardware test components print measurements; they do not replace automated tests.
 See [LSM9DS1 hardware validation](components/lsm9ds1_driver/README.md) for wiring, configuration, and expected output.
 
