@@ -17,7 +17,7 @@ public:
     /**
     * @brief Defines the current operational state of the sensor.
      */
-    enum class SensorState : uint8_t {
+    enum class PeripheralState : uint8_t {
         UNINITIALIZED, // Driver created, but init() not called
         INITIALIZED,   // init() called, but comms not confirmed
         CONNECTED,     // Comms established, ready to read
@@ -44,7 +44,7 @@ public:
      * @param host The host processor this driver is running on (OBC, ESP32)
      */
     explicit PeripheralInterface(Protocols::InterfaceType interface, HostController host) : 
-        _State(SensorState::UNINITIALIZED),
+        _State(PeripheralState::UNINITIALIZED),
         _Interface(interface),
         _Host(host)
     {}
@@ -71,7 +71,7 @@ public:
     /**
      * @brief Gets the current state of the sensor.
      */
-    SensorState getState() const { return _State; }
+    PeripheralState getState() const { return _State; }
 
     /**
      * @brief Gets the interface (I2C, SPI, etc...).
@@ -89,7 +89,7 @@ protected:
      * @brief The current state of the sensor.
      * Child classes MUST update this variable in their init() and read() functions.
      */
-    SensorState _State;
+    PeripheralState _State;
 
     /**
      * @brief The fixed interface type for this sensor.
