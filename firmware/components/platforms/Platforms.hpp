@@ -1,3 +1,6 @@
+#ifndef LUNABOTICS_PLATFORMS_HPP_
+#define LUNABOTICS_PLATFORMS_HPP_
+
 #include <common/protocols/InterfaceProtocols.hpp>
 #include <driver/gpio.h>
 #include <cstddef>  
@@ -79,16 +82,13 @@ public:
     }
 
     bool enableI2C() override {
-        gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT);
-        gpio_set_level(gpio_num_t(i2c_pwr_pin), 1);
-        return true;
+        return gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT) == ESP_OK &&
+               gpio_set_level(gpio_num_t(i2c_pwr_pin), 1) == ESP_OK;
     }
 
     bool disableI2C() override {
-        // Simple call to avoid confition that the GPIO_MODE_OUTPUT has not yet been set.
-        enableI2C();
-        gpio_set_level(gpio_num_t(i2c_pwr_pin), 0);
-        return true;
+        return gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT) == ESP_OK &&
+               gpio_set_level(gpio_num_t(i2c_pwr_pin), 0) == ESP_OK;
     }
 
     Protocols::GPIOConfig led_pwr_pin {.gpio_pin = 13};
@@ -132,3 +132,4 @@ private:
 }
 }
 }
+#endif

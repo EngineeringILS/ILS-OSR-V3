@@ -90,6 +90,35 @@ namespace DataTypes {
         Timestamp timestamp;
         uint16_t  flags = 0;
     };
+
+    /** @brief Three-axis angular velocity in radians per second. */
+    struct AngularVelocity {
+        Units::QuantityD<Units::AngularVelocity> x = Units::ZERO;
+        Units::QuantityD<Units::AngularVelocity> y = Units::ZERO;
+        Units::QuantityD<Units::AngularVelocity> z = Units::ZERO;
+    };
+
+    /** @brief Three-axis magnetic flux density in tesla. */
+    struct MagneticField {
+        Units::QuantityD<Units::Tesla> x = Units::ZERO;
+        Units::QuantityD<Units::Tesla> y = Units::ZERO;
+        Units::QuantityD<Units::Tesla> z = Units::ZERO;
+    };
+
+    /**
+     * @brief Last complete LSM9DS1 sample in the chip's native axis frames.
+     * @note Temperature is absolute kelvin; the internal sensor is not an ambient thermometer.
+     * The three sensing blocks are not synchronized. Timestamp marks host acquisition.
+     */
+    struct LSM9DS1Data {
+        LinearAcceleration acceleration;
+        AngularVelocity angular_velocity;
+        MagneticField magnetic_field;
+        Units::QuantityD<Units::Kelvins> temperature = Units::ZERO;
+        Timestamp timestamp{};
+        uint8_t ag_status = 0;
+        uint8_t mag_status = 0;
+    };
 }
 }
 }
