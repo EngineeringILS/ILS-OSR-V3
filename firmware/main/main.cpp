@@ -7,6 +7,7 @@
 #include <Max1704x.hpp>
 #include <ina3221.hpp>
 #include <ina3221_test.hpp>
+#include <lsm9ds1_test.hpp>
 #include <Neopixel.hpp>
 #include <LED.hpp>
 #include <Platforms.hpp>
@@ -55,6 +56,11 @@ void app_main(void) {
     // 2. Setup Terminal
     SerialIO Terminal;
     Terminal.init();
+
+    Drivers::LSM9DS1 imu(&i2cBus0);
+    if (!imu.init()) {
+        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+    }
     
     Drivers::NeopixelConfig neopixel_config{
     .data = {.gpio_pin = 33},
@@ -81,7 +87,7 @@ void app_main(void) {
     Terminal.serial_out(ioMsg);
     
     while (true) {
-        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'blink', 'stopblink', or 'q' to quit: \n";
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'imustop', 'blink', 'stopblink', or 'q': \n";
         Terminal.serial_out(ioMsg);
         ioMsg = "Input: ";
         ioMsg = Terminal.serial_in(ioMsg);
@@ -125,6 +131,14 @@ void app_main(void) {
         } else if (ioMsg == "read") {
             max1704x_test_data(Terminal, max1704x);
             ina3221_test_data(Terminal, ina3221);
+        } else if (ioMsg == "imu") {
+            lsm9ds1_test_data(Terminal, imu);
+        } else if (ioMsg == "imuinit") {
+            Terminal.serial_out(imu.reset() ? "LSM9DS1 [INIT OK]\n" :
+                "LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+        } else if (ioMsg == "imustop") {
+            Terminal.serial_out(imu.powerDown() ? "LSM9DS1 [STOPPED]\n" :
+                "LSM9DS1 [STOP FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
         } else if (ioMsg == "blink") {
             red_led.blink(500);
             neopixel.blink(500);
@@ -145,6 +159,7 @@ void app_main(void) {
     }
 
     // 4. Cleanup
+    imu.deinit();
     Terminal.deinit();
     
     // In a real RTOS app, app_main should not return, but for a test, this is fine.

@@ -282,6 +282,28 @@ public:
 
 
     // Public Getter Methods:
+    /**
+     * @brief Reads a device-specific register block without interpreting byte order.
+     * @param reg_addr Register command, including device-specific increment flags.
+     * @param data Destination buffer.
+     * @param len Number of bytes to read.
+     * @return True on success; check getRXErr() on failure.
+     */
+    bool readRegisters(uint8_t reg_addr, uint8_t* data, size_t len) {
+        if (!device_handle_ || !initialized_) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
+            return false;
+        }
+        if (!data || len == 0) {
+            reg_rx_err_ = ESP_ERR_INVALID_ARG;
+            return false;
+        }
+        reg_rx_err_ = i2c_master_transmit_receive(
+            device_handle_, &reg_addr, 1, data, len, 100
+        );
+        return reg_rx_err_ == ESP_OK;
+    }
+
     I2CBus* getBus() {return bus_; }
     uint8_t getAddress() const { return address_; }
     uint32_t getFreq() const { return device_scl_freq_; }

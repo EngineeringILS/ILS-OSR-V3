@@ -18,3 +18,16 @@ target_include_directories(sensor_tests PRIVATE
     ../components/SerialIO
 )
 add_test(NAME sensor_tests COMMAND sensor_tests)
+
+add_executable(lsm9ds1_tests
+    lsm9ds1_tests.cpp
+    ../components/lsm9ds1_driver/lsm9ds1.cpp
+)
+target_compile_features(lsm9ds1_tests PRIVATE cxx_std_17)
+target_include_directories(lsm9ds1_tests PRIVATE
+    stubs
+    ../../common/include
+    ../components/i2c_driver
+    ../components/lsm9ds1_driver
+)
+add_test(NAME lsm9ds1_tests COMMAND lsm9ds1_tests)

@@ -9,6 +9,8 @@ idf_component_register(
              max1704x_test
              ina3221_driver
              ina3221_test
+             lsm9ds1_driver
+             lsm9ds1_test
              i2c_driver
              i2c_tools
              led_driver
