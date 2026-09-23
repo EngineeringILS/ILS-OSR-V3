@@ -56,6 +56,7 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
             active_servos=servos,
             active_configs=configs,
         )
+        ADEN_ACKERMANN = False
         while True:
             tty.setraw(fd)
             
@@ -105,7 +106,12 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 servo_methods.hold_angle(servo=servos[2], config=configs[2])
 
             if movement == "w":
-                macro_set_motor_speed(motors=motors, speed=speed)
+                if (ADEN_ACKERMANN):
+                    macro_set_motor_speed(motors=[motors[1], motors[4], motors[5]], speed=-speed)
+                    macro_set_motor_speed(motors=[motors[0], motors[2], motors[3]], speed=speed)
+                else:
+                    macro_set_motor_speed(motors=motors, speed=speed)
+
                 roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
                 servo_methods.hold_angle(servo=servos[0], config=configs[0])
                 servo_methods.hold_angle(servo=servos[1], config=configs[1])
@@ -116,10 +122,15 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 poor_mans_ackermann(servos, configs)
 
             elif movement == "h":
+                ADEN_ACKERMANN = True
                 poor_mans_ackermann(servos, configs, reverse=True)
 
             elif movement == "s":
-                macro_set_motor_speed(motors=motors, speed=-speed)
+                if (ADEN_ACKERMANN):
+                    macro_set_motor_speed(motors=[motors[1], motors[4], motors[5]], speed=speed)
+                    macro_set_motor_speed(motors=[motors[0], motors[2], motors[3]], speed=-speed)
+                else:
+                    macro_set_motor_speed(motors=motors, speed=-speed)
                 roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
                 servo_methods.hold_angle(servo=servos[0], config=configs[0])
                 servo_methods.hold_angle(servo=servos[1], config=configs[1])
@@ -127,6 +138,7 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 servo_methods.hold_angle(servo=servos[3], config=configs[3])
 
             elif movement == " ":
+                ADEN_ACKERMANN = False
                 macro_set_motor_speed(motors=motors, speed=0)
                 roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
                 servo_methods.hold_angle(servo=servos[0], config=configs[0])
