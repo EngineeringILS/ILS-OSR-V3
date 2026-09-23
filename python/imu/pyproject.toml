@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ils-imu-serial"
+version = "0.1.0"
+description = "Timestamped LSM9DS1 serial interface for the onboard computer"
+requires-python = ">=3.10"
+dependencies = ["pyserial>=3.5,<4"]
+
+[tool.setuptools]
+packages = ["imu_serial"]

@@ -27,10 +27,41 @@ esp_err_t SerialIO::init() {
 }
 
 void SerialIO::deinit() {
+    pending_line_.clear();
+    discard_line_ = false;
     if (is_initialized_) {
         usb_serial_jtag_driver_uninstall();
         is_initialized_ = false;
     }
+}
+
+LineResult SerialIO::poll_line(std::string& line) {
+    line.clear();
+    if (!is_initialized_) return LineResult::None;
+
+    for (size_t consumed = 0; consumed < io_buffer_size_; ++consumed) {
+        char c;
+        if (usb_serial_jtag_read_bytes(&c, 1, 0) <= 0) break;
+        if (discard_line_) {
+            if (c == '\n') {
+                discard_line_ = false;
+                return LineResult::Overflow;
+            }
+            continue;
+        }
+        if (c == '\r') continue;
+        if (c == '\n') {
+            line.swap(pending_line_);
+            return LineResult::Line;
+        }
+        if (c < 0x20 || c > 0x7e || pending_line_.size() >= io_buffer_size_ - 1) {
+            pending_line_.clear();
+            discard_line_ = true;
+            continue;
+        }
+        pending_line_ += c;
+    }
+    return LineResult::None;
 }
 
 std::string SerialIO::serial_in(const std::string& prompt) {

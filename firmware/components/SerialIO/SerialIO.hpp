@@ -6,6 +6,8 @@
 #ifndef SERIAL_IO_HPP
 #define SERIAL_IO_HPP
 
+enum class LineResult { None, Line, Overflow };
+
 /**
  * TODO: Migrate SerialIO to SerialInterface:
  */
@@ -50,11 +52,19 @@ public:
     /// @note Long messages are written in chunks; io_buffer_size_ limits input lines only.
     void serial_out(const std::string& message);
 
+    /// Nonblocking, non-echoing input; preserves partial lines between calls.
+    /// Consumes at most io_buffer_size bytes per call. CR is ignored; LF ends
+    /// a line. Invalid/overlong lines are discarded through LF, then Overflow
+    /// is returned once. Do not mix this method with serial_in on one instance.
+    LineResult poll_line(std::string& line);
+
 private: 
     size_t usb_serial_buf_size_;  // Use size_t objects to hold the USB buffer value, char limiter.
     size_t io_buffer_size_;
     bool is_initialized_ = false; 
     usb_serial_jtag_driver_config_t usb_config_;
+    std::string pending_line_;
+    bool discard_line_ = false;
 };
 
 #endif

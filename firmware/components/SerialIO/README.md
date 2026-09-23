@@ -9,10 +9,18 @@
     - [ ] Refactored Derivative of the `SerialInterface` / `ESPSerialInterface`
     - [ ] Compliance with `Units.hpp` and `DataTypes.hpp`
 
+### Machine Input
+- `poll_line(std::string&)` returns `LineResult::None`, `Line`, or `Overflow`.
+- Reads never wait or echo. Partial lines survive polls; LF ends a line and CR is ignored.
+- Each call consumes at most `io_buffer_size` bytes. Accepted lines contain at most
+  `io_buffer_size - 1` printable ASCII characters.
+- Invalid or overlong lines are discarded in full through LF, then return Overflow once.
+- Use one reader; do not mix `poll_line()` and interactive `serial_in()` on an instance.
+
 ### Usage Notes
 - `init()` is idempotent and rejects empty buffers or input capacity below two bytes.
 - Input accepts printable characters up to `io_buffer_size - 1` and supports backspace.
 - Output is independent of input capacity and retries partial writes.
 - Copying is disabled because the instance owns the installed driver.
 
-> Note: This remains a hardware-test console. Migration to the shared serial interface and physical regression testing are pending.
+> Note: The IMU application uses machine input; interactive input remains for hardware tests. Migration to the shared serial interface and physical regression testing are pending.

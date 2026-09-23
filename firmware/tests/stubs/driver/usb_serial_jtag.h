@@ -11,6 +11,7 @@ struct usb_serial_jtag_driver_config_t {
 namespace TestSerial {
 inline int installations = 0;
 inline std::string output;
+inline std::string input;
 }
 
 inline esp_err_t usb_serial_jtag_driver_install(const usb_serial_jtag_driver_config_t*) {
@@ -18,7 +19,12 @@ inline esp_err_t usb_serial_jtag_driver_install(const usb_serial_jtag_driver_con
     return ESP_OK;
 }
 inline void usb_serial_jtag_driver_uninstall() { --TestSerial::installations; }
-inline int usb_serial_jtag_read_bytes(void*, size_t, int) { return 0; }
+inline int usb_serial_jtag_read_bytes(void* data, size_t size, int) {
+    const size_t count = std::min(size, TestSerial::input.size());
+    TestSerial::input.copy(static_cast<char*>(data), count);
+    TestSerial::input.erase(0, count);
+    return static_cast<int>(count);
+}
 inline int usb_serial_jtag_write_bytes(const void* data, size_t size, int) {
     // Short writes exercise the console's output retry loop.
     const size_t count = std::min(size, size_t{7});

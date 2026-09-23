@@ -31,3 +31,17 @@ target_include_directories(lsm9ds1_tests PRIVATE
     ../components/lsm9ds1_driver
 )
 add_test(NAME lsm9ds1_tests COMMAND lsm9ds1_tests)
+
+add_executable(imu_protocol_tests imu_protocol_tests.cpp ../components/SerialIO/SerialIO.cpp)
+target_compile_features(imu_protocol_tests PRIVATE cxx_std_17)
+target_include_directories(imu_protocol_tests PRIVATE
+    stubs ../../common/include ../components/SerialIO ../main)
+add_test(NAME imu_protocol_tests COMMAND imu_protocol_tests)
+
+add_executable(imu_app_tests imu_app_tests.cpp ../main/main.cpp
+    ../components/SerialIO/SerialIO.cpp ../components/lsm9ds1_driver/lsm9ds1.cpp)
+target_compile_features(imu_app_tests PRIVATE cxx_std_17)
+target_include_directories(imu_app_tests PRIVATE stubs ../../common/include ../main
+    ../components/SerialIO ../components/lsm9ds1_driver ../components/i2c_driver
+    ../components/platforms)
+add_test(NAME imu_app_tests COMMAND imu_app_tests)

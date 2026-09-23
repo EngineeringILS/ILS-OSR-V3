@@ -4,6 +4,7 @@
 Provide a Pure Python Library / Python Tools that allows for the following:
 - DearPyGui Frontend Development Outside of ROS2
 - Roboclaw Manual Control Harness
+- [Timestamped IMU serial interface for the OBC](imu/README.md)
 
 ### Key Requirements
 - Python with `venv` for proper development environment setup.

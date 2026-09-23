@@ -1,199 +1,88 @@
-#include <stdio.h>
-#include <common/drivers/FakeIMU.hpp>
 #include <SerialIO.hpp>
-#include <i2c_driver.hpp>
-#include <i2c_tools.hpp>
-#include <Max1704x_test.hpp>
-#include <Max1704x.hpp>
-#include <ina3221.hpp>
-#include <ina3221_test.hpp>
-#include <lsm9ds1_test.hpp>
-#include <Neopixel.hpp>
-#include <LED.hpp>
 #include <Platforms.hpp>
-#include <driver/gpio.h>
-#include <cerrno>
-#include <cstdlib>
+#include <lsm9ds1.hpp>
+#include <esp_log.h>
+#include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <algorithm>
+#include "imu_protocol.hpp"
 
-
-using namespace Lunabotics::Common::Sensors;
-using namespace Lunabotics::Common::DataTypes;
-using namespace Lunabotics::ESP32;
 using namespace Lunabotics::Common;
-using SI = SensorInterface;
-#define TFT_I2C_POWER_GPIO 21
+using namespace Lunabotics::ESP32;
 
+extern "C" void app_main(void) {
+    esp_log_level_set("*", ESP_LOG_NONE);
+    SerialIO serial;
+    if (serial.init() != ESP_OK) return;
 
-
-extern "C" {
-    void app_main(void);
-};
-
-void app_main(void) {
-    // 1. Setup Hardware
     Boards::FeatherS3TFT board;
-    board.enableI2C();
-   
-    Protocols::I2CPort i2cPort0;
-    // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
-    board.I2C(0, i2cPort0);
-
-    // Attempt to initialize the driver:
-    Drivers::I2CBus i2cBus0(i2cPort0);
-    
-    // Attempt to initialize the max1704x:
-    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
-    Max1704x max1704x(0x36,&i2cBus0);
-    max1704x.init();
-
-    INA3221 ina3221(0x40, &i2cBus0);
-    ina3221.init();
-
-    LED red_led(board.led_pwr_pin);
-    red_led.init();
-    
-    // 2. Setup Terminal
-    SerialIO Terminal;
-    Terminal.init();
-
-    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
-    if (!imu.init()) {
-        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+    Protocols::I2CPort port{};
+    if (!board.enableI2C() || !board.I2C(0, port)) {
+        serial.serial_out(ImuProtocol::error(0, "ESP_ERR_INVALID_STATE"));
+        return;
     }
-    
-    Drivers::NeopixelConfig neopixel_config{
-    .data = {.gpio_pin = 33},
-    .pixel_count = 1,
-    .spi_host = SPI2_HOST,
-    .with_dma = true,
-    .invert_out = false,
-    .has_power_pin = true,
-    .power = {.gpio_pin = 34},
-    .power_active_high = true
+    Drivers::I2CBus bus(port);
+    Drivers::LSM9DS1 imu(0x6B, &bus);
+    bool initialized = imu.init();
+    bool streaming = initialized;
+    uint64_t sequence = 0;
+    if (!initialized) serial.serial_out(ImuProtocol::error(0, esp_err_to_name(imu.getErr())));
+
+    auto read_sample = [&](uint32_t id) -> esp_err_t {
+        if (!imu.read()) return imu.getErr();
+        // Acquisition completion on the MCU clock, not host/UTC time.
+        const int64_t timestamp_us = esp_timer_get_time();
+        DataTypes::LSM9DS1Data data;
+        imu.getData(data);
+        serial.serial_out(ImuProtocol::format_sample(data, id, sequence++, timestamp_us));
+        return ESP_OK;
     };
 
-    Drivers::Neopixel neopixel(neopixel_config);
-
-    if (neopixel.init()) {
-        neopixel.setColor(0, 255, 0);
-        neopixel.on();
-    }
-
-    // 3. User Interaction Loop
-    std::string ioMsg;
-    ioMsg.reserve(512);
-    ioMsg = "[TEST START] System Ready. \n";
-    Terminal.serial_out(ioMsg);
-    
+    std::string line;
     while (true) {
-        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', or 'q': \n";
-        Terminal.serial_out(ioMsg);
-        ioMsg = "Input: ";
-        ioMsg = Terminal.serial_in(ioMsg);
-
-        if (ioMsg == "check") {
-            i2c_status(Terminal, i2cBus0);
-            i2c_device_status(Terminal, max1704x);
-        }
-        else if (ioMsg == "scan") {
-            i2c_scan(Terminal, i2cBus0);
-        }
-        else if (ioMsg == "dump" || ioMsg.compare(0, 5, "dump ") == 0) {
-            // Default to MAX17048
-            uint8_t targetAddr = 0x36;
-
-            if (ioMsg.size() > 4) {
-                std::string arg = ioMsg.substr(5);
-                
-                char* endPtr;
-                // Accept hexadecimal or decimal 7-bit device addresses.
-                errno = 0;
-                unsigned long val = strtoul(arg.c_str(), &endPtr, 0);
-
-                // check if conversion failed:
-                // 1. endPtr == arg.c_str() -> No digits found
-                // 2. *endPtr != '\0'       -> Junk characters at end (e.g. "0x36xyz")
-                // 3. Overflow or an address outside the 7-bit range
-                if (endPtr == arg.c_str() || *endPtr != '\0' || errno == ERANGE || val > 0x7F) {
-                    Terminal.serial_out("Invalid address. Usage: dump <hex|dec>\n");
-                    continue;
+        const auto result = serial.poll_line(line);
+        if (result == LineResult::Overflow) {
+            serial.serial_out(ImuProtocol::error(0, "BAD_COMMAND"));
+        } else if (result == LineResult::Line) {
+            const auto command = ImuProtocol::parse_command(line);
+            using ImuProtocol::Action;
+            switch (command.action) {
+            case Action::Stop:
+                streaming = false;
+                serial.serial_out(ImuProtocol::ack(command.id, "STOP"));
+                break;
+            case Action::Start:
+                if (initialized) {
+                    streaming = true;
+                    serial.serial_out(ImuProtocol::ack(command.id, "START"));
+                } else {
+                    serial.serial_out(ImuProtocol::error(command.id, "ESP_ERR_INVALID_STATE"));
                 }
-                
-                targetAddr = static_cast<uint8_t>(val);
+                break;
+            case Action::Init:
+                streaming = false;
+                initialized = imu.init();
+                serial.serial_out(initialized ? ImuProtocol::ack(command.id, "INIT") :
+                    ImuProtocol::error(command.id, esp_err_to_name(imu.getErr())));
+                break;
+            case Action::Read: {
+                const auto error = read_sample(command.id);
+                if (error != ESP_OK) serial.serial_out(ImuProtocol::error(command.id, esp_err_to_name(error)));
+                break;
             }
-
-            i2c_dump(Terminal, i2cBus0, targetAddr, 1);
-        } else if (ioMsg == "checkread") {
-            uint8_t addresses[16] = {0x02, 0x04, 0x06, 0x08, 0x0C, 0x14, 0x16, 0x18, 0x1A};
-            uint8_t numAddresses = 9;
-            i2c_device_read(Terminal, max1704x, addresses, numAddresses);
-        } else if (ioMsg == "read") {
-            max1704x_test_data(Terminal, max1704x);
-            ina3221_test_data(Terminal, ina3221);
-        } else if (ioMsg == "imu") {
-            lsm9ds1_test_data(Terminal, imu);
-        } else if (ioMsg == "imuinit") {
-            Terminal.serial_out(imu.init() ? "LSM9DS1 [INIT OK]\n" :
-                "LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
-        } else if (ioMsg == "blink") {
-            red_led.blink(500);
-            neopixel.blink(500);
-        } else if (ioMsg == "stopblink") {
-            red_led.stopBlink();
-            neopixel.stopBlink();
+            case Action::Invalid:
+                serial.serial_out(ImuProtocol::error(command.id, "BAD_COMMAND"));
+                break;
+            }
         }
-        else if (ioMsg == "q") {
-            Terminal.serial_out("[TEST END] Quitting...\n");
-            break; // Exit the loop
+        if (streaming) {
+            const auto error = read_sample(0);
+            if (error != ESP_OK && error != ESP_ERR_NOT_FINISHED) {
+                serial.serial_out(ImuProtocol::error(0, esp_err_to_name(error)));
+                streaming = false;
+            }
         }
-        else {
-            Terminal.serial_out("Echo: " + ioMsg + "\n");
-        }
-        
-        // Small delay to keep the terminal responsive but not spammy
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(std::max<TickType_t>(pdMS_TO_TICKS(10), 1));
     }
-
-    // 4. Cleanup
-    Terminal.deinit();
-    
-    // In a real RTOS app, app_main should not return, but for a test, this is fine.
-    // Ideally, delete the tasks or loop forever here.
-    while(1) { vTaskDelay(1000); }
 }
-
-// OLD TEST INIT: 
-//  FakeIMU imu(SI::HostController::ESP32);
-// imu.init();
-// OLD TEST LOOP:
-// while (true) {
-//         Terminal.serial_out("Test I/O (Enter any message, 'q' to quit, 'start' to collect 10 data samples) \n");
-//         ioMsg = Terminal.serial_in("Input: ");
-//         Terminal.serial_out(ioMsg + "\n");
-//         if (ioMsg == "start") {
-//             for (size_t i = 0; i < 100; i++) {
-//                 if (!imu.read()) {
-//                     Terminal.serial_out("[FAIL] Failed to read sensor! \n");
-//                 } else {
-//                     imu.getData(imu_data);
-//                     float a_x = imu_data.a_x.in(au::meters / (au::seconds * au::seconds));
-//                     float a_y = imu_data.a_y.in(au::meters / (au::seconds * au::seconds));
-//                     float a_z = imu_data.a_z.in(au::meters / (au::seconds * au::seconds));
-//                     float timestamp = std::chrono::duration<float>(imu_data.timestamp.time_since_epoch()).count();
-//                     std::string a_xStr  = std::to_string(a_x) + ", ";
-//                     std::string a_yStr  = std::to_string(a_y) + ", ";
-//                     std::string a_zStr  = std::to_string(a_z) + "] (m/s^2)";
-//                     std::string timeStr = std::to_string(timestamp) + "(s), ";
-
-//                     Terminal.serial_out(timeStr + "[" + a_xStr + a_yStr + a_zStr + "\n");
-//                 }
-//             }
-            
-            
-//         }
-//         if (ioMsg == "q") {
-//             Terminal.serial_out("[TEST END] \n");
-//             break;
-//         }
-//     }

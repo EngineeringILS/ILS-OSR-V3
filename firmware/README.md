@@ -1,15 +1,15 @@
 # ESP-IDF ESP32 Firmware
 
 ### Purpose
-Provide a Wi-Fi/Serial command interface for:
-1. Recieving Ground Station commands (over Wi-Fi) and OBC System State (over Serial)
-2. Processing commands and monitoring the system state
-3. Transmitting OBC System State (over Wi-Fi), Processed Commands (over Serial), and physical Start/Stop/Restart (over GPIO)
+The current application is an IMU-only service for the onboard computer. It
+streams timestamped LSM9DS1 measurements and accepts START, STOP, READ, and INIT
+commands over USB Serial/JTAG using SerialIO strings. It starts streaming on
+successful initialization and emits only protocol sample, acknowledgment, and
+error records. Battery, power-monitor, LED, and interactive test components remain
+available for separate hardware tests.
 
-### Simplified Communication Flows
-1. Ground Station (Wi-Fi) <--> ESP32 (Serial) <--> OBC
-2. Ground Station (commands) --> ESP32 (processed commands + physical controls) --> OBC
-3. OBC (System State) --> ESP32 (processed System State) --> Ground Station
+See [protocol, timestamps, and validation](../documentation/timestamped-imu.md)
+and the [Python OBC client](../python/imu/README.md).
 
 ### Project Structure
 1. The ESP32 project is programmed in C++ using the ESP-IDF framework.
@@ -30,7 +30,7 @@ lunabotics-cdh-dev/firmware
 │   ├── SerialIO # USB serial JTAG console
 │   ├── ina3221_test # Power monitor hardware test output
 │   └── max1704x_test # Fuel gauge hardware test output
-├── main # app_main() and interactive hardware test loop
+├── main # app_main() and timestamped IMU serial service
 └── tests # Host regression tests with emulated transport
 
 lunabotics-cdh-dev/common
@@ -54,10 +54,14 @@ lunabotics-cdh-dev/common
 2. Run `idf.py set-target esp32s3`, then `idf.py build`.
 3. With a supported board connected, run `idf.py -p <port> flash monitor`.
 
-The current application targets FeatherS3TFT. Commands include `check`, `scan`,
-`dump <hex|dec>`, `checkread`, `read`, `imu`, `imuinit`, `blink`, `stopblink`, and `q`.
-Hardware test components print measurements; they do not replace automated tests.
-See [LSM9DS1 hardware validation](components/lsm9ds1_driver/README.md) for wiring, configuration, and expected output.
+The application targets FeatherS3TFT, with LSM9DS1 AG at 0x6B and magnetometer
+at 0x1E. See [LSM9DS1 wiring and configuration](components/lsm9ds1_driver/README.md).
+
+`firmware/sdkconfig.defaults` disables secondary console output on USB Serial/JTAG.
+If using an existing `sdkconfig`, select **Component config → ESP System Settings →
+Channel for console secondary output → No secondary console** in `idf.py menuconfig`.
+Keep the primary console on UART, not USB Serial/JTAG. Existing sdkconfig choices
+override defaults. Early boot text can still appear; the Python client skips it.
 
 ### Host Regression Tests
 ```bash
@@ -67,6 +71,9 @@ ctest --test-dir firmware/tests/build --output-on-failure
 ```
 
 These tests use emulated I2C and serial transports to check conversions,
-failed-read recovery, sample preservation, resource ownership, and long output.
+failed-read recovery, sample preservation, resource ownership, serial framing,
+command handling, timestamps, and initialization/stream recovery. The app test
+executes the actual main loop against emulated transports. Python tests also
+exercise real pyserial through a pseudo-terminal; see the Python client README.
 
 > Note: Shared interfaces remain in `common`; ESP-IDF handles and board-specific operations belong in firmware components.
