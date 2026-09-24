@@ -6,7 +6,7 @@ from motorcontrol.roboclaw_types import Motor
 from servocontrol.servo_types import ServoConfig
 
 @dataclass
-class SixWheelMotion:
+class SixWheelConfig:
     # Motor Objects:
     FRONT_LEFT   : Motor 
     FRONT_RIGHT  : Motor
