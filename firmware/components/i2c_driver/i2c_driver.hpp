@@ -23,6 +23,10 @@ public:
         init();
     }
 
+    // Rule of 3: Copy Forbid:
+    I2CBus(const I2CBus&) = delete;
+    I2CBus& operator=(const I2CBus&) = delete;
+
     ~I2CBus() {
         if (initialized_) {
             i2c_del_master_bus(bus_handle_);
@@ -43,14 +47,13 @@ public:
 
         // Skip re-initialization (the I2C Bus is expected to either never fail or catastrophically fail, if the I2C Bus catastrophically fails, its a bigger problem.):
         } else if (!initialized_) {
-            i2c_master_bus_config_t i2c_bus_config = {
-                .i2c_port = port_.i2c_port,  // select a free I2C port automatically
-                .sda_io_num = static_cast<gpio_num_t>(port_.sda_pin),
-                .scl_io_num = static_cast<gpio_num_t>(port_.scl_pin),
-                .clk_source = I2C_CLK_SRC_DEFAULT,
-                .glitch_ignore_cnt = 7,
-                .flags = { .enable_internal_pullup = true }
-            };
+            i2c_master_bus_config_t i2c_bus_config = {};
+            i2c_bus_config.i2c_port = port_.i2c_port;
+            i2c_bus_config.sda_io_num = static_cast<gpio_num_t>(port_.sda_pin);
+            i2c_bus_config.scl_io_num = static_cast<gpio_num_t>(port_.scl_pin);
+            i2c_bus_config.clk_source = I2C_CLK_SRC_DEFAULT;
+            i2c_bus_config.glitch_ignore_cnt = 7;
+            i2c_bus_config.flags.enable_internal_pullup = true;
 
             err_ = i2c_new_master_bus(&i2c_bus_config, &bus_handle_);
             if (err_ == ESP_OK) {
@@ -83,12 +86,12 @@ public:
 private:
     const Protocols::I2CPort port_;
     i2c_master_bus_handle_t bus_handle_ = nullptr;
-    esp_err_t err_;
+    esp_err_t err_ = ESP_OK;
     bool initialized_ = false;
 };
 
 /**
- * @brief Future Class to describe I2C Devices by address and by bus.
+ * @brief Registers an I2C device and provides byte and word register access.
  */
 class I2CDevice {
 public:
@@ -96,7 +99,7 @@ public:
      * @brief Construct a new I2CDevice object.
      * @param address The 7-bit hex address of the I2C Device (e.g. 0x36).
      * @param bus A pointer to the I2CBus this sensor will operate on.
-     * @param sclFreq The desired SCL frequency for the sensor, must be less than the bus frequency.
+     * @param sclFreq The desired SCL frequency in Hz, within the device and board limits.
      */
     explicit I2CDevice(const uint8_t &address, I2CBus* bus,  const uint32_t &sclFreq = 100000) : bus_(bus), address_(address), device_scl_freq_(sclFreq)  {
         init();
@@ -128,6 +131,10 @@ public:
         }
 
         // Forbid re-initialization (consider I2C devices crashing?):
+        else if (address_ > 0x7F || device_scl_freq_ == 0) {
+            err_ = ESP_ERR_INVALID_ARG;
+            initialized_ = false;
+        }
         else if (device_handle_ == nullptr && !initialized_) {
             // Define the I2C config:
             i2c_device_config_t device_cfg = {
@@ -161,6 +168,24 @@ public:
         initialized_ = false;
     }
 
+    
+    /**
+     * @brief Writes a raw buffer to the device (useful for commands without registers).
+     */
+    bool write(const uint8_t* data, size_t len) {
+        if (!device_handle_ || !initialized_ ) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
+            return false;
+        }
+        reg_rx_err_ = i2c_master_transmit(device_handle_, data, len, -1);
+        if (reg_rx_err_ == ESP_OK) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
     /**
      * @brief Writes a byte of data to a specific I2C Device's register.
      * @param reg_addr The hex address of the register.
@@ -172,6 +197,20 @@ public:
         return write(write_buf, 2);
     }
 
+     /**
+     * @brief Writes a 16-bit word, most-significant byte first.
+     * @param reg_addr The hex address of the register.
+     * @param data The 2 data bytes to write.
+     * @returns True if the write operation returns ESP_OK, false if an error occurs (check getRXerr() for more info).
+     */
+    bool writeRegister(const uint8_t& reg_addr, const uint16_t& data) {
+        uint8_t write_buf[3] = {
+            reg_addr, static_cast<uint8_t>(data >> 8), static_cast<uint8_t>(data)
+        };
+        return write(write_buf, 3);
+    }
+
+
     /**
      * @brief Reads a byte of data from a specific I2C Device's register.
      * @param reg_addr The hex address of the register.
@@ -180,6 +219,7 @@ public:
      */
     bool readRegister(const uint8_t& reg_addr, uint8_t &data) {
         if (!device_handle_ || !initialized_) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
             return false;
         }
         reg_rx_err_ = i2c_master_transmit_receive(device_handle_, &reg_addr, 1, &data, 1, -1);
@@ -200,6 +240,7 @@ public:
     bool readRegister(const uint8_t& reg_addr, uint16_t &data) {
         uint8_t read_buf[2];
         if (!device_handle_ || !initialized_) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
             return false;
         }
         reg_rx_err_ = i2c_master_transmit_receive(device_handle_, &reg_addr,  1, read_buf, 2, -1);
@@ -222,6 +263,7 @@ public:
     bool readRegister(const uint8_t& reg_addr, int16_t &data) {
         uint8_t read_buf[2];
         if (!device_handle_ || !initialized_) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
             return false;
         }
         reg_rx_err_ = i2c_master_transmit_receive(device_handle_, &reg_addr,  1, read_buf, 2, -1);
@@ -237,23 +279,31 @@ public:
     }
     
     
-    /**
-     * @brief Writes a raw buffer to the device (useful for commands without registers).
-     */
-    bool write(const uint8_t* data, size_t len) {
-        if (!device_handle_ || !initialized_ ) {
-            return false;
-        }
-        reg_rx_err_ = i2c_master_transmit(device_handle_, data, len, -1);
-        if (reg_rx_err_ == ESP_OK) {
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
+
 
     // Public Getter Methods:
+    /**
+     * @brief Reads a device-specific register block without interpreting byte order.
+     * @param reg_addr Register command, including device-specific increment flags.
+     * @param data Destination buffer.
+     * @param len Number of bytes to read.
+     * @return True on success; check getRXErr() on failure.
+     */
+    bool readRegisters(uint8_t reg_addr, uint8_t* data, size_t len) {
+        if (!device_handle_ || !initialized_) {
+            reg_rx_err_ = ESP_ERR_INVALID_STATE;
+            return false;
+        }
+        if (!data || len == 0) {
+            reg_rx_err_ = ESP_ERR_INVALID_ARG;
+            return false;
+        }
+        reg_rx_err_ = i2c_master_transmit_receive(
+            device_handle_, &reg_addr, 1, data, len, 100
+        );
+        return reg_rx_err_ == ESP_OK;
+    }
+
     I2CBus* getBus() {return bus_; }
     uint8_t getAddress() const { return address_; }
     uint32_t getFreq() const { return device_scl_freq_; }
@@ -267,8 +317,8 @@ private:
     const uint8_t address_;
     const uint32_t device_scl_freq_;
     bool initialized_ = false;
-    esp_err_t err_;
-    esp_err_t reg_rx_err_;
+    esp_err_t err_ = ESP_OK;
+    esp_err_t reg_rx_err_ = ESP_OK;
     i2c_master_dev_handle_t device_handle_ = nullptr;
 
 };

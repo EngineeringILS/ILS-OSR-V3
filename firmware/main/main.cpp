@@ -5,9 +5,16 @@
 #include <i2c_tools.hpp>
 #include <Max1704x_test.hpp>
 #include <Max1704x.hpp>
+#include <ina3221.hpp>
+#include <ina3221_test.hpp>
+#include <lsm9ds1_test.hpp>
+#include <Neopixel.hpp>
+#include <LED.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
-#include <stdexcept>
+#include <cerrno>
+#include <cstdlib>
+#include <freertos/task.h>
 
 
 using namespace Lunabotics::Common::Sensors;
@@ -26,9 +33,8 @@ extern "C" {
 void app_main(void) {
     // 1. Setup Hardware
     Boards::FeatherS3TFT board;
-    gpio_set_direction(gpio_num_t(21), GPIO_MODE_OUTPUT);
-    gpio_set_level(gpio_num_t(21), 1);
-
+    board.enableI2C();
+   
     Protocols::I2CPort i2cPort0;
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
     board.I2C(0, i2cPort0);
@@ -40,18 +46,51 @@ void app_main(void) {
     // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
     Max1704x max1704x(0x36,&i2cBus0);
     max1704x.init();
+
+    INA3221 ina3221(0x40, &i2cBus0);
+    ina3221.init();
+
+    LED red_led(board.led_pwr_pin);
+    red_led.init();
+    
     // 2. Setup Terminal
     SerialIO Terminal;
     Terminal.init();
+
+    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
+    if (!imu.init()) {
+        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+    }
     
+    Drivers::NeopixelConfig neopixel_config{
+    .data = {.gpio_pin = 33},
+    .pixel_count = 1,
+    .spi_host = SPI2_HOST,
+    .with_dma = true,
+    .invert_out = false,
+    .has_power_pin = true,
+    .power = {.gpio_pin = 34},
+    .power_active_high = true
+    };
+
+    Drivers::Neopixel neopixel(neopixel_config);
+
+    if (neopixel.init()) {
+        neopixel.setColor(0, 255, 0);
+        neopixel.on();
+    }
+
     // 3. User Interaction Loop
     std::string ioMsg;
-    Terminal.serial_out("[TEST START] System Ready. \n");
+    ioMsg.reserve(512);
+    ioMsg = "[TEST START] System Ready. \n";
+    Terminal.serial_out(ioMsg);
     
     while (true) {
-        
-        Terminal.serial_out("Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', or 'q' to quit: \n");
-        ioMsg = Terminal.serial_in("Input: ");
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', or 'q': \n";
+        Terminal.serial_out(ioMsg);
+        ioMsg = "Input: ";
+        ioMsg = Terminal.serial_in(ioMsg);
 
         if (ioMsg == "check") {
             i2c_status(Terminal, i2cBus0);
@@ -60,29 +99,28 @@ void app_main(void) {
         else if (ioMsg == "scan") {
             i2c_scan(Terminal, i2cBus0);
         }
-        else if (ioMsg.size() >= 4 && ioMsg.substr(0, 4) == "dump") {
+        else if (ioMsg == "dump" || ioMsg.compare(0, 5, "dump ") == 0) {
             // Default to MAX17048
             uint8_t targetAddr = 0x36;
 
-            if (ioMsg.size() > 5) {
+            if (ioMsg.size() > 4) {
                 std::string arg = ioMsg.substr(5);
                 
-                // --- REPLACEMENT LOGIC START ---
                 char* endPtr;
-                // strtoul(string, end_pointer, base 0 for auto-detect)
+                // Accept hexadecimal or decimal 7-bit device addresses.
+                errno = 0;
                 unsigned long val = strtoul(arg.c_str(), &endPtr, 0);
 
                 // check if conversion failed:
                 // 1. endPtr == arg.c_str() -> No digits found
                 // 2. *endPtr != '\0'       -> Junk characters at end (e.g. "0x36xyz")
-                // 3. val > 255             -> Address too big for I2C
-                if (endPtr == arg.c_str() || *endPtr != '\0' || val > 255) {
+                // 3. Overflow or an address outside the 7-bit range
+                if (endPtr == arg.c_str() || *endPtr != '\0' || errno == ERANGE || val > 0x7F) {
                     Terminal.serial_out("Invalid address. Usage: dump <hex|dec>\n");
-                    return; // Changed from continue if inside a void function
+                    continue;
                 }
                 
                 targetAddr = static_cast<uint8_t>(val);
-                // --- REPLACEMENT LOGIC END ---
             }
 
             i2c_dump(Terminal, i2cBus0, targetAddr, 1);
@@ -92,6 +130,18 @@ void app_main(void) {
             i2c_device_read(Terminal, max1704x, addresses, numAddresses);
         } else if (ioMsg == "read") {
             max1704x_test_data(Terminal, max1704x);
+            ina3221_test_data(Terminal, ina3221);
+        } else if (ioMsg == "imu") {
+            lsm9ds1_test_data(Terminal, imu);
+        } else if (ioMsg == "imuinit") {
+            Terminal.serial_out(imu.init() ? "LSM9DS1 [INIT OK]\n" :
+                "LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+        } else if (ioMsg == "blink") {
+            red_led.blink(500);
+            neopixel.blink(500);
+        } else if (ioMsg == "stopblink") {
+            red_led.stopBlink();
+            neopixel.stopBlink();
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");

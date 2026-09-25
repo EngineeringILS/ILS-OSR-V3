@@ -15,7 +15,7 @@ bool Max1704x::init() {
     
     uint16_t version;
     // Failure to read from the register, likely a deeper issue than initialization.
-    // Refer to the above getErr() method.
+    // Check getRXErr() for the transaction error.
     if (!readRegister(reg(DataRegisters::VERSION), version)) {
         _State = SensorState::FAILED;
         return false;
@@ -29,7 +29,7 @@ bool Max1704x::init() {
 bool Max1704x::read() {
     // Connected State --> Good Read.
     // Error State --> Last read may have failed, but potentially not catastrophic, if the sensor is truly disconnected, the readRegister should just return false.
-    if (!(_State == SensorState::CONNECTED)) {
+    if (_State != SensorState::CONNECTED && _State != SensorState::ERROR) {
         return false;
     }
 
@@ -74,6 +74,7 @@ bool Max1704x::read() {
     } else {
         battery_data_.is_charging = false;
     }
+    _State = SensorState::CONNECTED;
     return true;
 }
 
@@ -83,6 +84,6 @@ void Max1704x::getData(DataTypes::BatteryData& data) const {
 
 
 
-} // namespace Sensors
-} // namespace Common
+} // namespace Drivers
+} // namespace ESP32
 } // namespace Lunabotics

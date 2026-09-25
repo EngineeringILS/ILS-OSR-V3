@@ -6,6 +6,11 @@
 
 namespace Lunabotics {
 namespace Common {
+/**
+ * @brief Provides the major data types with unit standardization for all downstream project components.
+ * @note It is planned to migrate the datatypes for specific devices into their specific drivers 
+ * at a later date, the migration should be straightforward.
+ */
 namespace DataTypes {
 
     // Define a standard clock system for all timestamps and derived sensors/motors using std::chrono:
@@ -60,6 +65,59 @@ namespace DataTypes {
         // Simple Flags:
         bool is_charging = false;
         bool is_low = false;
+    };
+
+    /**
+     * @brief Struct that provides voltage, shunt voltage, current, and power
+     * data for one INA3221 measurement channel.
+     */
+    struct PowerChannelData {
+        Units::QuantityD<Units::Volts>   bus_voltage   = Units::ZERO;
+        Units::QuantityD<Units::Volts>   shunt_voltage = Units::ZERO;
+        Units::QuantityD<Units::Amperes> current       = Units::ZERO;
+        Units::QuantityD<Units::Watts>   power         = Units::ZERO;
+    };
+
+    /**
+     * @brief Struct that provides power-monitoring data for all three fixed
+     * INA3221 measurement channels, together with a timestamp and status flags.
+     */
+    struct INA3221Data {
+        PowerChannelData channel_1;
+        PowerChannelData channel_2;
+        PowerChannelData channel_3;
+
+        Timestamp timestamp;
+        uint16_t  flags = 0;
+    };
+
+    /** @brief Three-axis angular velocity in radians per second. */
+    struct AngularVelocity {
+        Units::QuantityD<Units::AngularVelocity> x = Units::ZERO;
+        Units::QuantityD<Units::AngularVelocity> y = Units::ZERO;
+        Units::QuantityD<Units::AngularVelocity> z = Units::ZERO;
+    };
+
+    /** @brief Three-axis magnetic flux density in tesla. */
+    struct MagneticField {
+        Units::QuantityD<Units::Tesla> x = Units::ZERO;
+        Units::QuantityD<Units::Tesla> y = Units::ZERO;
+        Units::QuantityD<Units::Tesla> z = Units::ZERO;
+    };
+
+    /**
+     * @brief Last complete LSM9DS1 sample in the chip's native axis frames.
+     * @note Temperature is absolute kelvin; the internal sensor is not an ambient thermometer.
+     * The three sensing blocks are not synchronized. Timestamp marks host acquisition.
+     */
+    struct LSM9DS1Data {
+        LinearAcceleration acceleration;
+        AngularVelocity angular_velocity;
+        MagneticField magnetic_field;
+        Units::QuantityD<Units::Kelvins> temperature = Units::ZERO;
+        Timestamp timestamp{};
+        uint8_t ag_status = 0;
+        uint8_t mag_status = 0;
     };
 }
 }

@@ -13,6 +13,7 @@ namespace Units {
     using Acceleration = decltype(meters / squared(second))::Unit;
     using Velocity     = decltype(meters / second)::Unit;
     using Position     = decltype(meters):: Unit;
+    using AngularVelocity = decltype(radians / second)::Unit;
     
     // Static Base Factors:
     /**

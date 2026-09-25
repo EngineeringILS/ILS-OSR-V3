@@ -98,6 +98,11 @@ void i2c_scan(SerialIO &terminal, I2CBus &bus) {
 
 
 void i2c_dump(SerialIO &terminal, I2CBus &bus, uint8_t chip_address, int size) {
+    // Each transaction must fit the four-byte buffer and divide the 16-byte row.
+    if (chip_address > 0x7F || (size != 1 && size != 2 && size != 4)) {
+        terminal.serial_out("Invalid address or dump width (expected 1, 2, or 4).\n");
+        return;
+    }
     if (!bus.isInitialized()) {
         terminal.serial_out("I2C Bus not initialized.\n");
         return;
@@ -105,11 +110,10 @@ void i2c_dump(SerialIO &terminal, I2CBus &bus, uint8_t chip_address, int size) {
 
     // 1. Setup a temporary device config for the target address
     i2c_master_dev_handle_t dev_handle = nullptr;
-    i2c_device_config_t dev_conf = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = chip_address,
-        .scl_speed_hz = bus.getI2CPort().frequency,
-    };
+    i2c_device_config_t dev_conf = {};
+    dev_conf.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_conf.device_address = chip_address;
+    dev_conf.scl_speed_hz = bus.getI2CPort().frequency;
 
     // 2. Add device to the bus temporarily
     esp_err_t err = i2c_master_bus_add_device(bus.getI2CBus(), &dev_conf, &dev_handle);
