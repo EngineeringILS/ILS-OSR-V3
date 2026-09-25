@@ -30,6 +30,7 @@ from motorcontrol.roboclaw_config import serial_ports, baud_rate, controller_add
 import motion_methods as methods
 
 
+speeds = [0,100,200,400,800,1000,1200,1600,2000,2500,3000,3200]
 '''
 Static Definitions and Configuration:
 '''
@@ -92,7 +93,7 @@ def main():
     for servo in turning_servos:
         servo.actuation_range = 300
 
-    methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speed=speed, debug=True)
+    methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds,stop_counts=50, debug=True)
 
 if __name__ == "__main__":
     main()

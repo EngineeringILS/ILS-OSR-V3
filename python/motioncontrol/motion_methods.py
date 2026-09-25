@@ -262,11 +262,7 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
 
             elif char_input == " ":
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=0, stop_counter=stop_counter)
-                servo_methods.hold_angle(servo=servos[0], config=configs[0])
-                servo_methods.hold_angle(servo=servos[1], config=configs[1])
-                servo_methods.hold_angle(servo=servos[2], config=configs[2])
-                servo_methods.hold_angle(servo=servos[3], config=configs[3])
-
+                
             elif char_input == "b":
                 servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
 
