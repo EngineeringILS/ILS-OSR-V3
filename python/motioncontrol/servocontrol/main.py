@@ -25,6 +25,7 @@ turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], serv
 def main():
     for servo in turning_servos:
             servo.actuation_range = 300
+            servo.set_pulse_width_range(500, 2500)
     methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=zeroes[0], s1_pos=zeroes[1], s2_pos=zeroes[2], s3_pos=zeroes[3])
     methods.servo_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=4, debug=True)
 
