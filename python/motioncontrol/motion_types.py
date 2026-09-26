@@ -29,6 +29,9 @@ class SixWheelConfig:
     BACK_LEFT_STEER   : ServoConfig
     BACK_RIGHT_STEER  : ServoConfig
 
+    # Speeds:
+    Speeds : list[int]
+
     def getMotors(self) -> list[Motor]:
         motors = [self.FRONT_LEFT, 
                   self.FRONT_RIGHT, 

@@ -105,14 +105,27 @@ def linear_motor_movement(
         )
         return
 
-    # Future:
-    # if movement_select == 3:
-    #     ...
-    #     return
-    #
-    # if movement_select == 4:
-    #     ...
-    #     return
+    # INPLACE TURN
+    if movement_select in (3,4):
+        # SAFETY: TURN SPEED LIMIT, DOES NOT MUTATE GLOBAL SPEED :)
+        if speed > 1000:
+            speed = 1000
+        left_motors  = [motors[0], motors[2], motors[4]]
+        right_motors = [motors[1], motors[3], motors[5]]
+        if movement_select == 3:
+            macro_set_motor_speed(left_motors, speed=-speed)
+            macro_set_motor_speed(right_motors, speed=speed)
+            roboclaw_methods.move_motors(
+                motors=left_motors + right_motors,
+                roboclaws=roboclaws
+            )
+        elif movement_select == 4:
+            macro_set_motor_speed(left_motors, speed=speed)
+            macro_set_motor_speed(right_motors, speed=-speed)
+            roboclaw_methods.move_motors(
+                motors=left_motors + right_motors,
+                roboclaws=roboclaws
+            )
 
     # FAIL SAFE:
     # Any unsupported movement command stops the robot.
@@ -262,7 +275,7 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
 
             elif char_input == " ":
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=0, stop_counter=stop_counter)
-                
+
             elif char_input == "b":
                 servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
 

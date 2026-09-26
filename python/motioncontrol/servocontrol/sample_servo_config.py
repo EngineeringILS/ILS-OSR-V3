@@ -14,8 +14,4 @@ s3_params : list[int] = [0, 164, 300]
 
 step_degrees = 3
 
-# Static Definitions - Migrate to Configuration Later:
-i2c_address = 0x40
-channel_count = 16
-pwm_frequency = 50
 

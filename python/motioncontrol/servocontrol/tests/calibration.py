@@ -16,8 +16,12 @@ from servo_methods import ServoConfig
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
 
-from servo_config import i2c_address, channel_count, pwm_frequency
-from calibration_config import s0_params, s1_params, s2_params, s3_params, step_degrees
+# Static Definitions - Might Migrate to Configuration Later:
+i2c_address = 0x40
+channel_count = 16
+pwm_frequency = 50
+
+from tests.calibration_config import s0_params, s1_params, s2_params, s3_params, step_degrees
 
 servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pwm_frequency)
 

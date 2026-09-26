@@ -61,19 +61,29 @@ motor_configs = [(FRONT_LEFT,   FRONT_LEFT_QPPS),
 
 motor_configs : list[Tuple[Motor, int]]
 
+"""
+MOTORS:
+FRONT_LEFT   --> 0
+FRONT_RIGHT  --> 1
+MIDDLE_LEFT  --> 2
+MIDDLE_RIGHT --> 3
+BACK_LEFT    --> 4
+BACK_RIGHT   --> 5
+"""
+motors = [
+    FRONT_LEFT,
+    FRONT_RIGHT, 
+    MIDDLE_LEFT, 
+    MIDDLE_RIGHT, 
+    BACK_LEFT, 
+    BACK_RIGHT
+    ]
+motors : list[Motor] # Pylance Type the Motor Array
 
-motors = [FRONT_LEFT,
-          FRONT_RIGHT, 
-          MIDDLE_LEFT, 
-          MIDDLE_RIGHT, 
-          BACK_LEFT, 
-          BACK_RIGHT]
-
-motors : list[Motor]
-
-# Configuration:
+# ServoKit Configuration:
 servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pwm_frequency)
 
+# Servo Configuration:
 servo_configs : list[ServoConfig] = [
     ServoConfig(channel=0, min_safe=s0_params[0],  straight=s0_params[1], max_safe=s0_params[2], name="Back Right"),
     ServoConfig(channel=1, min_safe=s1_params[0],  straight=s1_params[1], max_safe=s1_params[2], name="Front Right"),
@@ -81,6 +91,7 @@ servo_configs : list[ServoConfig] = [
     ServoConfig(channel=3, min_safe=s3_params[0],  straight=s3_params[1], max_safe=s3_params[2], name="Back Left"),
     ]
 
+# Servo Packing:
 turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
 
 

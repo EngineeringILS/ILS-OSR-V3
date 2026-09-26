@@ -43,3 +43,7 @@ pip-wheel-metadata/
 # --- Byte-compiled / Optimized / DLLs ---
 __pycache__/
 *.so
+
+# Local Configs:
+*/calibration_config.py
+*/servo_config.py
