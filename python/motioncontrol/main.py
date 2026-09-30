@@ -103,6 +103,7 @@ def main():
                             debug=True)
     for servo in turning_servos:
         servo.actuation_range = 300
+        servo.set_pulse_width_range(500,2500)
 
     methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds,stop_counts=50, debug=True)
 

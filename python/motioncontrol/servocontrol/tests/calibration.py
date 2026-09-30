@@ -26,6 +26,15 @@ from tests.calibration_config import s0_params, s1_params, s2_params, s3_params,
 servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pwm_frequency)
 
 def calibration():
+    servodriver.servo[0].set_pulse_width_range(500,2500)
+    servodriver.servo[0].actuation_range = 300
+    servodriver.servo[1].set_pulse_width_range(500,2500)
+    servodriver.servo[1].actuation_range = 300
+    servodriver.servo[2].set_pulse_width_range(500,2500)
+    servodriver.servo[2].actuation_range = 300
+    servodriver.servo[3].set_pulse_width_range(500,2500)
+    servodriver.servo[3].actuation_range = 300
+
     methods.servodriver_setup(servo=servodriver, pwm_frequency=pwm_frequency, i2c_address=i2c_address)
     methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=s0_params[1], s1_pos=s1_params[1], s2_pos=s2_params[1], s3_pos=s3_params[1])
     methods.testing_servo_movement_loop(servo=servodriver, step_degrees=step_degrees, max_angle=300, min_angle=0, set_start_point=s0_params[1], channel=0, debug=True)
