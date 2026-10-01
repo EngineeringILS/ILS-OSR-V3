@@ -12,6 +12,7 @@ idf_component_register(
              lsm9ds1_driver
              lsm9ds1_test
              i2c_driver
+             i2c_tiny_usb
              i2c_tools
              led_driver
              platforms

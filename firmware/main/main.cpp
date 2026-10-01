@@ -2,6 +2,7 @@
 #include <common/drivers/FakeIMU.hpp>
 #include <SerialIO.hpp>
 #include <i2c_driver.hpp>
+#include <i2c_tiny_usb.hpp>
 #include <i2c_tools.hpp>
 #include <Max1704x_test.hpp>
 #include <Max1704x.hpp>
@@ -80,6 +81,10 @@ void app_main(void) {
         neopixel.on();
     }
 
+    // Exposes I2C0 to a USB host on 'usbi2c'. Construction leaves the USB port to the console.
+    // Static storage keeps the bridge buffers off the main task stack.
+    static Drivers::I2CTinyUSB usb_bridge(&i2cBus0);
+
     // 3. User Interaction Loop
     std::string ioMsg;
     ioMsg.reserve(512);
@@ -87,7 +92,7 @@ void app_main(void) {
     Terminal.serial_out(ioMsg);
     
     while (true) {
-        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', or 'q': \n";
+        ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', 'usbi2c', or 'q': \n";
         Terminal.serial_out(ioMsg);
         ioMsg = "Input: ";
         ioMsg = Terminal.serial_in(ioMsg);
@@ -142,6 +147,16 @@ void app_main(void) {
         } else if (ioMsg == "stopblink") {
             red_led.stopBlink();
             neopixel.stopBlink();
+        } else if (ioMsg == "usbi2c") {
+            // The bridge takes the USB PHY from the USB Serial/JTAG console until reset.
+            Terminal.serial_out("Switching USB to the i2c-tiny-usb bridge. Press RESET to return to this console.\n");
+            vTaskDelay(pdMS_TO_TICKS(100));
+            Terminal.deinit();
+            if (usb_bridge.init()) {
+                while (true) { vTaskDelay(portMAX_DELAY); }
+            }
+            Terminal.init();
+            Terminal.serial_out("i2c-tiny-usb [INIT FAIL] " + std::string(esp_err_to_name(usb_bridge.getErr())) + "\n");
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");

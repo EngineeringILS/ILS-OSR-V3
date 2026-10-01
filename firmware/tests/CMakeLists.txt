@@ -31,3 +31,18 @@ target_include_directories(lsm9ds1_tests PRIVATE
     ../components/lsm9ds1_driver
 )
 add_test(NAME lsm9ds1_tests COMMAND lsm9ds1_tests)
+
+add_executable(i2c_tiny_usb_tests
+    i2c_tiny_usb_tests.cpp
+    ../components/i2c_tiny_usb/i2c_tiny_usb.cpp
+    ../components/i2c_tiny_usb/i2c_tiny_usb_bridge.cpp
+    ../components/i2c_tiny_usb/i2c_tiny_usb_transport.cpp
+)
+target_compile_features(i2c_tiny_usb_tests PRIVATE cxx_std_17)
+target_include_directories(i2c_tiny_usb_tests PRIVATE
+    stubs
+    ../../common/include
+    ../components/i2c_driver
+    ../components/i2c_tiny_usb
+)
+add_test(NAME i2c_tiny_usb_tests COMMAND i2c_tiny_usb_tests)

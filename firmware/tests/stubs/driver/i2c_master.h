@@ -16,8 +16,12 @@ constexpr int ESP_ERR_INVALID_STATE = 2;
 constexpr int ESP_ERR_INVALID_ARG = 3;
 constexpr int ESP_ERR_TIMEOUT = 4;
 constexpr int ESP_ERR_NOT_FINISHED = 5;
+constexpr int ESP_ERR_NOT_SUPPORTED = 6;
 constexpr int I2C_CLK_SRC_DEFAULT = 0;
 constexpr int I2C_ADDR_BIT_LEN_7 = 0;
+constexpr int I2C_DEVICE_ADDRESS_NOT_USED = 0xFFFF;
+#define SOC_I2C_CMD_REG_NUM 8
+#define SOC_I2C_FIFO_LEN 32
 
 struct i2c_master_bus_config_t {
     int i2c_port, sda_io_num, scl_io_num, clk_source, glitch_ignore_cnt;
@@ -27,6 +31,15 @@ struct i2c_device_config_t {
     int dev_addr_length, device_address;
     uint32_t scl_speed_hz, scl_wait_us;
     struct { bool disable_ack_check; } flags;
+};
+enum i2c_master_command_t { I2C_MASTER_CMD_START, I2C_MASTER_CMD_WRITE, I2C_MASTER_CMD_READ, I2C_MASTER_CMD_STOP };
+enum i2c_ack_value_t : uint8_t { I2C_ACK_VAL = 0, I2C_NACK_VAL = 1 };
+struct i2c_operation_job_t {
+    i2c_master_command_t command;
+    union {
+        struct { bool ack_check; uint8_t* data; size_t total_bytes; } write;
+        struct { i2c_ack_value_t ack_value; uint8_t* data; size_t total_bytes; } read;
+    };
 };
 
 namespace TestI2C {
@@ -41,6 +54,11 @@ inline int fail_address = -1;
 inline int fail_write_register = -1;
 inline bool reset_stuck = false;
 inline unsigned transactions = 0;
+inline int device_address = -1;
+inline uint32_t device_speed = 0;
+inline bool refuse_removal = false;
+// Emulated bus for defined operations; success when unset.
+inline esp_err_t (*execute)(const i2c_operation_job_t* ops, size_t count) = nullptr;
 }
 
 inline esp_err_t i2c_new_master_bus(const i2c_master_bus_config_t*, i2c_master_bus_handle_t* bus) {
@@ -55,9 +73,13 @@ inline esp_err_t i2c_del_master_bus(i2c_master_bus_handle_t) {
 inline esp_err_t i2c_master_bus_add_device(i2c_master_bus_handle_t, const i2c_device_config_t* config, i2c_master_dev_handle_t* device) {
     *device = new uint8_t(static_cast<uint8_t>(config->device_address));
     ++TestI2C::devices;
+    TestI2C::device_address = config->device_address;
+    TestI2C::device_speed = config->scl_speed_hz;
     return ESP_OK;
 }
 inline esp_err_t i2c_master_bus_rm_device(i2c_master_dev_handle_t device) {
+    // The driver refuses removal while another device is mid-transaction.
+    if (TestI2C::refuse_removal) return ESP_ERR_INVALID_STATE;
     delete static_cast<uint8_t*>(device);
     --TestI2C::devices;
     return ESP_OK;
@@ -102,4 +124,8 @@ inline esp_err_t i2c_master_transmit_receive(i2c_master_dev_handle_t device, con
     data[0] = size == 2 ? value >> 8 : value & 0xFF;
     if (size == 2) data[1] = value & 0xFF;
     return ESP_OK;
+}
+inline esp_err_t i2c_master_execute_defined_operations(i2c_master_dev_handle_t, i2c_operation_job_t* ops, size_t count, int) {
+    ++TestI2C::transactions;
+    return TestI2C::execute ? TestI2C::execute(ops, count) : ESP_OK;
 }
