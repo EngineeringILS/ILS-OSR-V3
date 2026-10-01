@@ -22,7 +22,7 @@ bool FakeIMU::init() {
     _State = SensorState::CONNECTED;
 
     // Reset Sensor Data Values:
-    _IMUAcceleration = {Units::ZERO, Units::ZERO, Units::ZERO};
+    _IMUAcceleration = {};
     _readCounter = 0;
     _startTime = DataTypes::LocalClock::now();
     // Indicate Success:
@@ -31,7 +31,7 @@ bool FakeIMU::init() {
 
 // read() implementation:
 bool FakeIMU::read() {
-    // This is the core logic for the square wave output.
+    // Generate sinusoidal acceleration using elapsed time.
 
     // Check if the sensor is in a bad state:
     if (_State == SensorState::FAILED || _State == SensorState::UNINITIALIZED) {

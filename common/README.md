@@ -28,14 +28,14 @@ lunabotics-cdh-dev/common
 ### Planned and Implemented Base Classes
 | Base Class | Description | Implementation Status | 
 |----------|----------|----------|
-| Units.hpp | Proxy for the AU Unit Library without std::template or std::iostream | Implemented |
-| UnitsIO.hpp | Proxy for the AU Unit Library with std::template and std::iostream | Implemented | 
+| Units.hpp | Proxy for the AU Unit Library without stream I/O | Implemented |
 | SensorInterface.hpp | Abstract base class for all sensors | Implemented |
+| PeripheralInterface.hpp | Abstract initialization and state interface for output peripherals | Implemented |
 | MotorInterface.hpp  | Abstract base class for all motors  | Planned |
 | SerialCommunication.hpp | Abstract base class for all serial communication | Planned |
 | WiFiCommunication.hpp | Abstract base class for all wifi communication | Planned |
 
-> **Note:** Default to using Units.hpp for ESP-IDF and ROS2_WS to avoid blanket C++20 migration issues!
+> **Note:** Use `Units.hpp` for shared measurements. `read()` and `getData()` remain concrete sensor methods, not virtual members of `SensorInterface`.
 
 ### Planned and Implemented Example Drivers
 | Driver | Description | Implementation Status |
@@ -51,7 +51,7 @@ lunabotics-cdh-dev/common
 ### Supported Platforms 
 | Platform | Support Status | Notes |
 |----------|----------|----------|
-| ESP-IDF | Full Support | v4.4+ (v5.1+ if using `UnitsIO.hpp`) |
+| ESP-IDF | Component support | Firmware targets v5.4.3; shared component requests C++17 |
 | WSL with CMake | Full Support | Standard Buld |
 | ROS2 Humble | Planned | Via Colcon |
 
@@ -60,3 +60,10 @@ lunabotics-cdh-dev/common
 2. Ensure platform agnosticism for driver templates built in `/common`.
 3. Create unit tests for `/common` specific functionality.
 4. Ensure proper addition of drivers to the `/common/CMakeLists` file.
+
+### Standalone Tests
+```bash
+cmake -S common -B common/build -DBUILD_TESTING=ON
+cmake --build common/build
+ctest --test-dir common/build --output-on-failure
+```

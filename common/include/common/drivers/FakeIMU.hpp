@@ -43,9 +43,8 @@ public:
     // TODO: The base SensorInterface.hpp does not yet have a standardized read() function; however, it is planned that it WILL, so this would need to become an override in future releases!!
     /**
      * @brief "Reads" from the fake sensor.
-     * This function updates the internal square wave value
-     * and stores it in the private m_data variable.
-     * @return Always returns true.
+     * Generates sine/cosine acceleration and stores it in _IMUAcceleration.
+     * @return True on success, false if uninitialized or failed.
      */ 
     bool read();
     
@@ -62,7 +61,7 @@ private:
     DataTypes::LinearAcceleration _IMUAcceleration;
 
     /**
-     * @brief A counter to manage the square wave timing.
+     * @brief Number of generated samples since initialization.
      */
     size_t _readCounter;
     

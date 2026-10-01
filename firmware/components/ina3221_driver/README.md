@@ -1,20 +1,15 @@
-### Max1704x Fuel Gauge Library
-- This library wraps a standard SensorInterface for managing the lifecycle and data collection methods for the MAX1704x fuel gauge IC.
-- This class must be completed in order to comply with Project Design Principles.
-- [ ] Code Implemented to Meet Project Design Principles and provide full Battery Management
-    - [x] Properly Initializes the Max1704x Fuel Gauge IC
-    - [x] Properly Provides upstream information and methods
-    - [ ] Handles Battery Disconnection Events 
-    - [ ] Handles Low Battery Deep Sleep (stretch goal)
-    - [ ] Handles Severe Hardware Failures (IC Failure or Disconnection for unknown reason)
-Functionality
-- [ ] Code Functionally Complete 
-    - [x] Compilation
-    - [ ] Unit Tests
-    - [x] Hardware Tests
-    - [x] Derivative of the `SensorInterface` 
-    - [x] Derivative of `I2CDevice`
-    - [x] Compliance with `Units.hpp` and `DataTypes.hpp`
-    - [x] Platform specific I2C options
+### INA3221 Power Monitor Library
+- Wraps the three-channel INA3221 as a `SensorInterface` and `I2CDevice`.
+- Requires an initialized I2C bus and positive shunt resistance for each channel (default: 0.05 ohms).
+- `init()` checks device identification and enables continuous measurements.
+- `read()` collects bus voltage, shunt voltage, current, power, status flags, and a timestamp.
+- `getData()` copies the last complete sample; failed reads preserve that sample and may be retried.
 
-> Note: This class will be the first properly implemented hardware sensor and is expected to require significantly more development time due to the required constraints.
+### Functionality
+- [x] Shared interface and unit-aware data integration
+- [x] Three-channel measurement and serial test harness
+- [x] Device identification and shunt resistance checks
+- [ ] Alert threshold configuration
+- [ ] Hardware regression testing after maintenance changes
+
+> Note: The I2C bus must outlive the driver. Check `getState()`, `getErr()`, and `getRXErr()` when an operation fails.

@@ -1,12 +1,16 @@
-name: Common Lib CI
+name: Common and Firmware Host Tests
 
 on:
   push:
     paths:
-      - 'common/**' # Only run if changes happen in /common
+      - 'common/**'
+      - 'firmware/**'
+      - '.github/workflows/c-cpp.yml'
   pull_request:
     paths:
       - 'common/**'
+      - 'firmware/**'
+      - '.github/workflows/c-cpp.yml'
 
 jobs:
   build-and-test:
@@ -33,3 +37,15 @@ jobs:
       # Run the tests defined by add_test()
       # --output-on-failure: Prints the error log if a test fails
       run: ctest --test-dir build --output-on-failure
+
+    - name: Configure Firmware Host Tests
+      working-directory: .
+      run: cmake -S firmware/tests -B firmware/tests/build
+
+    - name: Build Firmware Host Tests
+      working-directory: .
+      run: cmake --build firmware/tests/build
+
+    - name: Run Firmware Host Tests
+      working-directory: .
+      run: ctest --test-dir firmware/tests/build --output-on-failure

@@ -38,7 +38,7 @@ public:
     };
 
     /** 
-     * @brief Constructor to set the fixed properties of the senesor.
+     * @brief Constructor to set the fixed properties of the sensor.
      * 
      * @param interface the bus type (I2C, SPI, etc...)
      * @param host The host processor this driver is running on (OBC, ESP32)
@@ -59,9 +59,9 @@ public:
     /**
      * @brief Initializes the sensor hardware.
      * Connects, runs self-tests, and sets configuration.
-     * Should update m_state to CONNECTED or FAILED
+     * Should update _State to CONNECTED or FAILED.
      * 
-     * @return True on succesful read, false on failure
+     * @return True on successful initialization, false on failure.
      */
     virtual bool init() = 0;
 
@@ -105,4 +105,4 @@ protected:
 } // namespace Sensors
 } // namespace Common
 } // namespace Lunabotics
-#endif 
+#endif

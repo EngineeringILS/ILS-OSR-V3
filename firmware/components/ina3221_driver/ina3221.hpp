@@ -17,7 +17,7 @@ using namespace Lunabotics::Common::Sensors;
 using Resistance = Units::QuantityD<Units::Ohms>;
 
 /**
- * @brief A wrapper class that aligns the INA3221 driver witxh ILS OSR V3 standards as a SensorInterface.
+ * @brief Wraps the INA3221 power monitor as a SensorInterface.
  * 
  * This class implements the SensorInterface and allows data reading capabilities and lifecycle functions for a INA3221 multi-channel power measurement sensor.
  * 
@@ -30,8 +30,11 @@ public:
     /**
      * @brief Constructor for the INA3221.
      * 
-     * @param host The processor this driver is running on.
-     * @param I2C_Config The platform specific protocols::I2CConfig for I2C operation.
+     * @param addr The 7-bit I2C address.
+     * @param i2c_bus The initialized bus, which must outlive this driver.
+     * @param channel_1_shunt Channel 1 shunt resistance; must be positive.
+     * @param channel_2_shunt Channel 2 shunt resistance; must be positive.
+     * @param channel_3_shunt Channel 3 shunt resistance; must be positive.
      */
     explicit INA3221(const uint8_t& addr, 
                     I2CBus* i2c_bus, 
@@ -47,7 +50,7 @@ public:
             {}
 
     /**
-     * @brief Virtual Destructor, both I2CDevice and SensorInterface posess suitable virtual destuctors which safely handle memory.
+     * @brief Releases the device through the I2CDevice destructor.
      */
     virtual ~INA3221() = default;
 
@@ -55,7 +58,7 @@ public:
 
     /**
      * @brief Initializes the INA3221.
-     * @return True on sucessful initialiation, False on failed initilization, check getErr().
+     * @return True on successful initialization, false on invalid configuration or communication failure.
      */
 
     bool init() override;
@@ -64,11 +67,12 @@ public:
      * @brief Reads Sensor Data into memory.
      * This function queries the I2C Device Data
      * and stores it in the private power_channel_data_ variable.
-     * @return May return true or false.
+     * @return True on a complete sample, false on failure; the previous sample is retained.
      */ 
     bool read();
     
     // Sensor Specific Public Functions:
+    /** @brief Copies the last complete sample without performing I2C transactions. */
     void getData(DataTypes::INA3221Data& data) const;
      
 private:
@@ -130,10 +134,10 @@ private:
     }
     
     /**
-     * @brief Helper function to convert calculate channel conversion.
+     * @brief Reads and converts one channel's voltage, current, and power.
      * @param shunt_register The shunt-voltage measurement
      * @param bus_register The bus-voltage measurement
-     * @param shunt_Resistance The shunt resistance
+     * @param shunt_resistance The shunt resistance
      * @param channel_data The channel data object
      */
     bool readChannel(
@@ -144,8 +148,8 @@ private:
     );
 
 };
-} // namespace Sensors
-} // namespace Common
+} // namespace Drivers
+} // namespace ESP32
 } // namespace Lunabotics
 
 #endif

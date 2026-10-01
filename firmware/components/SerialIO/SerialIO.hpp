@@ -27,6 +27,10 @@ public:
     /// @brief Destructor that cleans up and uninstalls the USB serial JTAG driver.
     ~SerialIO();
 
+    // Rule of 3: Copy Forbid:
+    SerialIO(const SerialIO&) = delete;
+    SerialIO& operator=(const SerialIO&) = delete;
+
     /// @brief Installs the USB serial JTAG driver with the configured settings.
     /// @return ESP_OK on success, or an error code on failure.
     esp_err_t init();
@@ -43,7 +47,7 @@ public:
 
     /// @brief Sends a string to the serial console.
     /// @param message The message to send.
-    /// @note There is a guardrail to ensure that the outputted message object does not exceed the set maximum number of chars set in io_buffer_size_
+    /// @note Long messages are written in chunks; io_buffer_size_ limits input lines only.
     void serial_out(const std::string& message);
 
 private: 

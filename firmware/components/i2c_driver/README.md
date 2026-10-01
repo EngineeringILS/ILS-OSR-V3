@@ -8,7 +8,7 @@
     - [ ] Gracefully handles I2C Device Disconnections 
     - [ ] Handles Low Battery Deep Sleep (stretch goal)
     - [ ] Handles Severe Hardware Failures (IC Failure or Disconnection for unknown reason)
-    - [ ] Rule of Three Compliance in `I2CBus`
+    - [x] Rule of Three Compliance in `I2CBus`
     - [x] Rule of Three Compliance in `I2CDevice`
 Functionality
 - [ ] Code Functionally Complete 
@@ -16,3 +16,9 @@ Functionality
     - [ ] Unit Tests
     - [ ] Hardware Tests
     - [x] Platform specific I2C options
+
+### Usage Notes
+- Keep the bus alive until all attached devices are destroyed.
+- Register helpers support byte reads/writes and big-endian 16-bit reads/writes.
+- `getErr()` reports initialization errors; `getRXErr()` reports transaction errors.
+- Bus/device registration does not confirm that hardware acknowledges its address.

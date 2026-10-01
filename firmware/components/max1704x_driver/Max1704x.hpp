@@ -29,13 +29,13 @@ public:
     /**
      * @brief Constructor for the max1704x.
      * 
-     * @param host The processor this driver is running on.
-     * @param I2C_Config The platform specific protocols::I2CConfig for I2C operation.
+     * @param addr The 7-bit I2C address.
+     * @param i2c_bus The initialized bus, which must outlive this driver.
      */
     explicit Max1704x(const uint8_t& addr, I2CBus* i2c_bus) : I2CDevice(addr, i2c_bus), SensorInterface(Protocols::InterfaceType::I2C, SensorInterface::HostController::ESP32) {}
 
     /**
-     * @brief Virtual Destructor, both I2CDevice and SensorInterface posess suitable virtual destuctors which safely handle memory.
+     * @brief Releases the device through the I2CDevice destructor.
      */
     virtual ~Max1704x() = default;
 
@@ -43,23 +43,23 @@ public:
 
     /**
      * @brief Initializes the max1704x.
-     * @return True on sucessful initialiation, False on failed initilization, check getErr().
+     * @return True on successful initialization, false on failure.
      */
 
     bool init() override;
 
     // TODO: The base SensorInterface.hpp does not yet have a standardized read() function; however, it is planned that it WILL, so this would need to become an override in future releases!!
     /**
-     * @brief Reads (TODO: DATA??).
-     * This function updates the current (TODO: DATA??)
-     * and stores it in the private _batteryData variable.
-     * @return May return true or false.
+     * @brief Reads voltage, state of charge, and charging status into battery_data_.
+     * @return True on a complete sample, false on failure; the previous sample is retained.
+     * @note A subsequent read retries communication after a recoverable error.
      */ 
     bool read();
     
     // Sensor Specific Public Functions:
     
 
+    /** @brief Copies the last complete sample without performing I2C transactions. */
     void getData(DataTypes::BatteryData& data) const;
      
 private:
@@ -106,8 +106,8 @@ private:
     // }
     
 };
-} // namespace Sensors
-} // namespace Common
+} // namespace Drivers
+} // namespace ESP32
 } // namespace Lunabotics
 
 #endif
