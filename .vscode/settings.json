@@ -5,5 +5,7 @@
             "envManager": "ms-python.python:venv",
             "packageManager": "ms-python.python:pip"
         }
-    ]
+    ],
+    "idf.currentSetup": "/Users/adenmann/Projects/espressif/.espressif/v5.5.5/esp-idf",
+    "cmake.sourceDirectory": "/Users/adenmann/Projects/ILS-OSR-V3/firmware/components/max1704x_driver"
 }

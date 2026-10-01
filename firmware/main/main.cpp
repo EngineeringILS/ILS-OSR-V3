@@ -15,6 +15,8 @@
 #include <cerrno>
 #include <cstdlib>
 #include <freertos/task.h>
+#include <cstring>
+#include <cstdint>
 
 
 using namespace Lunabotics::Common::Sensors;
@@ -24,68 +26,75 @@ using namespace Lunabotics::Common;
 using SI = SensorInterface;
 #define TFT_I2C_POWER_GPIO 21
 
+void build_data_string(LSM9DS1Data &data, imuStringData &str_data,  std::string &ioMsg);
+void imu_data_output(std::string &ioMsg, LSM9DS1 &imu);
+void interactive_loop(std::string &ioMsg, SerialIO &Terminal,I2CBus &i2cBus0, LED &red_led, Max1704x &max1704x,INA3221 &ina3221,Neopixel &neopixel,Drivers::LSM9DS1 &imu);
 
 
-extern "C" {
-    void app_main(void);
+/**
+ * @brief IMU Data Output:
+ *  
+ * */ 
+struct imuStringData {
+    char ax[9], ay[9], az[9], gx[9], gy[9], gz[9], mx[9], my[9], mz[9];
+    char time[17];
 };
-
-void app_main(void) {
-    // 1. Setup Hardware
-    Boards::FeatherS3TFT board;
-    board.enableI2C();
-   
-    Protocols::I2CPort i2cPort0;
-    // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
-    board.I2C(0, i2cPort0);
-
-    // Attempt to initialize the driver:
-    Drivers::I2CBus i2cBus0(i2cPort0);
-    
-    // Attempt to initialize the max1704x:
-    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
-    Max1704x max1704x(0x36,&i2cBus0);
-    max1704x.init();
-
-    INA3221 ina3221(0x40, &i2cBus0);
-    ina3221.init();
-
-    LED red_led(board.led_pwr_pin);
-    red_led.init();
-    
-    // 2. Setup Terminal
-    SerialIO Terminal;
-    Terminal.init();
-
-    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
-    if (!imu.init()) {
-        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+ 
+static void to_hex(uint64_t v, char *out, int n) {
+    for (int i = n - 1; i >= 0; --i, v >>= 4) out[i] = "0123456789ABCDEF"[v & 0xF];
+    out[n] = '\0';
+}
+ 
+static void f32_hex(float f, char *out) {
+    uint32_t b;
+    std::memcpy(&b, &f, 4);
+    to_hex(b, out, 8);
+}
+ 
+// Frame: "$IMU\n" + 9x "XXXXXXXX\n" + "time16hex\n" + "#END" = 107 chars
+// Heap-free as long as ioMsg.capacity() >= 107 (call ioMsg.reserve(128) once at init).
+void build_data_string(LSM9DS1Data &data, imuStringData &s, std::string &ioMsg) {
+    using namespace Units;
+    constexpr auto MPS2 = meters / squared(seconds);
+    constexpr auto RADPS = radians / seconds;
+    constexpr auto UT = micro(tesla);
+ 
+    f32_hex(data.acceleration.a_x.in<float>(MPS2), s.ax);
+    f32_hex(data.acceleration.a_y.in<float>(MPS2), s.ay);
+    f32_hex(data.acceleration.a_z.in<float>(MPS2), s.az);
+    f32_hex(data.angular_velocity.x.in<float>(RADPS), s.gx);
+    f32_hex(data.angular_velocity.y.in<float>(RADPS), s.gy);
+    f32_hex(data.angular_velocity.z.in<float>(RADPS), s.gz);
+    f32_hex(data.magnetic_field.x.in<float>(UT), s.mx);
+    f32_hex(data.magnetic_field.y.in<float>(UT), s.my);
+    f32_hex(data.magnetic_field.z.in<float>(UT), s.mz);
+    to_hex(std::chrono::duration_cast<std::chrono::nanoseconds>(
+               data.timestamp.time_since_epoch()).count(), s.time, 16);
+ 
+    ioMsg.resize(107);  // no alloc if capacity already >= 107
+    char *p = &ioMsg[0];
+    std::memcpy(p, "$IMU\n", 5); p += 5;
+    for (const char *f : {s.ax, s.ay, s.az, s.gx, s.gy, s.gz, s.mx, s.my, s.mz}) {
+        std::memcpy(p, f, 8); p[8] = '\n'; p += 9;
     }
-    
-    Drivers::NeopixelConfig neopixel_config{
-    .data = {.gpio_pin = 33},
-    .pixel_count = 1,
-    .spi_host = SPI2_HOST,
-    .with_dma = true,
-    .invert_out = false,
-    .has_power_pin = true,
-    .power = {.gpio_pin = 34},
-    .power_active_high = true
-    };
+    std::memcpy(p, s.time, 16); p[16] = '\n'; p += 17;
+    std::memcpy(p, "#END", 4);
+}
 
-    Drivers::Neopixel neopixel(neopixel_config);
 
-    if (neopixel.init()) {
-        neopixel.setColor(0, 255, 0);
-        neopixel.on();
-    }
 
-    // 3. User Interaction Loop
-    std::string ioMsg;
-    ioMsg.reserve(512);
-    ioMsg = "[TEST START] System Ready. \n";
-    Terminal.serial_out(ioMsg);
-    
+
+void interactive_loop(
+    std::string &ioMsg, 
+    SerialIO &Terminal,
+    I2CBus &i2cBus0, 
+    LED &red_led, 
+    Max1704x &max1704x,
+    INA3221 &ina3221,
+    Neopixel &neopixel,
+    Drivers::LSM9DS1 &imu) 
+    {
+
     while (true) {
         ioMsg = "Test I/O > 'check', 'scan', 'dump', 'checkread', 'read', 'imu', 'imuinit', 'blink', 'stopblink', or 'q': \n";
         Terminal.serial_out(ioMsg);
@@ -154,6 +163,66 @@ void app_main(void) {
         // Small delay to keep the terminal responsive but not spammy
         vTaskDelay(pdMS_TO_TICKS(100));
     }
+    return;
+}
+
+
+
+
+
+void app_main(void) {
+    // 1. Setup Hardware
+    Boards::FeatherS3TFT board;
+    board.enableI2C();
+   
+    Protocols::I2CPort i2cPort0;
+    // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
+    board.I2C(0, i2cPort0);
+
+    // Attempt to initialize the driver:
+    Drivers::I2CBus i2cBus0(i2cPort0);
+    
+    // Attempt to initialize the max1704x:
+    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
+    Max1704x max1704x(0x36,&i2cBus0);
+    max1704x.init();
+
+    INA3221 ina3221(0x40, &i2cBus0);
+    ina3221.init();
+
+    LED red_led(board.led_pwr_pin);
+    red_led.init();
+    
+    // 2. Setup Terminal
+    SerialIO Terminal;
+    Terminal.init();
+
+    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
+    if (!imu.init()) {
+        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+    }
+    
+    static constexpr Drivers::NeopixelConfig NeoPixelConfig {
+        .data = {.gpio_pin = 33},
+        .pixel_count = 1,
+        .spi_host = SPI2_HOST,
+        .with_dma = true,
+        .invert_out = false,
+        .has_power_pin = true,
+        .power = {.gpio_pin = 34},
+        .power_active_high = true
+    };
+    Drivers::Neopixel neopixel(NeoPixelConfig);
+
+    // Run Interactive Loop:
+    std::string ioMsg;
+    ioMsg.reserve(512);
+    ioMsg = "[TEST START] System Ready. \n";
+    Terminal.serial_out(ioMsg);
+    
+    interactive_loop(ioMsg, i2cBus0, Terminal, red_led, max1704x, ina3221, neopixel, imu);
+    imu_data_pipeline()
+   
 
     // 4. Cleanup
     Terminal.deinit();
@@ -163,37 +232,4 @@ void app_main(void) {
     while(1) { vTaskDelay(1000); }
 }
 
-// OLD TEST INIT: 
-//  FakeIMU imu(SI::HostController::ESP32);
-// imu.init();
-// OLD TEST LOOP:
-// while (true) {
-//         Terminal.serial_out("Test I/O (Enter any message, 'q' to quit, 'start' to collect 10 data samples) \n");
-//         ioMsg = Terminal.serial_in("Input: ");
-//         Terminal.serial_out(ioMsg + "\n");
-//         if (ioMsg == "start") {
-//             for (size_t i = 0; i < 100; i++) {
-//                 if (!imu.read()) {
-//                     Terminal.serial_out("[FAIL] Failed to read sensor! \n");
-//                 } else {
-//                     imu.getData(imu_data);
-//                     float a_x = imu_data.a_x.in(au::meters / (au::seconds * au::seconds));
-//                     float a_y = imu_data.a_y.in(au::meters / (au::seconds * au::seconds));
-//                     float a_z = imu_data.a_z.in(au::meters / (au::seconds * au::seconds));
-//                     float timestamp = std::chrono::duration<float>(imu_data.timestamp.time_since_epoch()).count();
-//                     std::string a_xStr  = std::to_string(a_x) + ", ";
-//                     std::string a_yStr  = std::to_string(a_y) + ", ";
-//                     std::string a_zStr  = std::to_string(a_z) + "] (m/s^2)";
-//                     std::string timeStr = std::to_string(timestamp) + "(s), ";
 
-//                     Terminal.serial_out(timeStr + "[" + a_xStr + a_yStr + a_zStr + "\n");
-//                 }
-//             }
-            
-            
-//         }
-//         if (ioMsg == "q") {
-//             Terminal.serial_out("[TEST END] \n");
-//             break;
-//         }
-//     }

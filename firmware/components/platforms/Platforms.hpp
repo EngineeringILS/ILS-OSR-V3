@@ -95,6 +95,7 @@ public:
     
 private:
     const int i2c_pwr_pin = 21;
+    
     static constexpr Protocols::I2CPort I2C_Port_0{
         .sda_pin = 42,
         .scl_pin = 41,
