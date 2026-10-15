@@ -1,8 +1,11 @@
 #include "i2c_tiny_usb.hpp"
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "tinyusb.h"
 #include "tinyusb_default_config.h"
 #include "device/usbd_pvt.h"
@@ -43,12 +46,15 @@ usbd_class_driver_t class_driver;
  * @brief TinyUSB callbacks of the active I2CTinyUSB instance.
  */
 struct I2CTinyUSBCallbacks {
-    static I2CTinyUSB* active;
+    static std::atomic<I2CTinyUSB*> active;
+    // Vendor requests being handled, so deinit() can wait for one that is using the I2C bus.
+    static std::atomic<int> busy;
 
     // Adds the class driver to the TinyUSB built-in drivers while a bridge is active.
     static const usbd_class_driver_t* drivers(uint8_t* driver_count) {
-        *driver_count = (active != nullptr) ? 1 : 0;
-        return (active != nullptr) ? &class_driver : nullptr;
+        const bool present = (active.load() != nullptr);
+        *driver_count = present ? 1 : 0;
+        return present ? &class_driver : nullptr;
     }
 
     static void init() {}
@@ -81,11 +87,15 @@ struct I2CTinyUSBCallbacks {
     // TinyUSB passes every vendor request here, whatever its recipient. CMD_I2C_IO carries the
     // target address in wIndex, so it rarely matches the interface number.
     static bool vendorRequest(uint8_t rhport, uint8_t stage, const tusb_control_request_t* request) {
-        I2CTinyUSB* self = active;
-        if (self == nullptr) {
-            return false;
-        }
+        // Counted before the instance is read, so deinit() can wait for any request that got past this check.
+        busy.fetch_add(1);
+        I2CTinyUSB* self = active.load();
+        const bool handled = (self != nullptr) && handle(*self, rhport, stage, request);
+        busy.fetch_sub(1);
+        return handled;
+    }
 
+    static bool handle(I2CTinyUSB& self, uint8_t rhport, uint8_t stage, const tusb_control_request_t* request) {
         const I2CTinyUSBBridge::Setup setup = {
             request->bRequest, request->wValue, request->wIndex, request->wLength
         };
@@ -96,32 +106,33 @@ struct I2CTinyUSBCallbacks {
                 return true;
             }
             size_t len = 0;
-            if (!self->bridge_.controlToHost(setup, self->in_, sizeof(self->in_), len)) {
+            if (!self.bridge_.controlToHost(setup, self.in_, sizeof(self.in_), len)) {
                 return false;
             }
-            return tud_control_xfer(rhport, request, self->in_, static_cast<uint16_t>(len));
+            return tud_control_xfer(rhport, request, self.in_, static_cast<uint16_t>(len));
         }
 
         switch (stage) {
             case CONTROL_STAGE_SETUP:
-                if (!I2CTinyUSBBridge::acceptsToDevice(setup) || request->wLength > sizeof(self->out_)) {
+                if (!I2CTinyUSBBridge::acceptsToDevice(setup) || request->wLength > sizeof(self.out_)) {
                     return false;
                 }
                 if (request->wLength == 0) {
-                    return self->bridge_.controlToDevice(setup, nullptr) && tud_control_status(rhport, request);
+                    return self.bridge_.controlToDevice(setup, nullptr) && tud_control_status(rhport, request);
                 }
                 // A short data stage must not leave bytes of an earlier request behind.
-                std::memset(self->out_, 0, request->wLength);
-                return tud_control_xfer(rhport, request, self->out_, request->wLength);
+                std::memset(self.out_, 0, request->wLength);
+                return tud_control_xfer(rhport, request, self.out_, request->wLength);
             case CONTROL_STAGE_DATA:
-                return self->bridge_.controlToDevice(setup, self->out_);
+                return self.bridge_.controlToDevice(setup, self.out_);
             default:
                 return true;
         }
     }
 };
 
-I2CTinyUSB* I2CTinyUSBCallbacks::active = nullptr;
+std::atomic<I2CTinyUSB*> I2CTinyUSBCallbacks::active{nullptr};
+std::atomic<int> I2CTinyUSBCallbacks::busy{0};
 
 I2CTinyUSB::I2CTinyUSB(I2CBus* bus, const I2CTinyUSBConfig& config) :
     bus_(bus),
@@ -143,7 +154,7 @@ bool I2CTinyUSB::init() {
         ESP_LOGE(TAG, "I2C bus is not initialized");
         return false;
     }
-    if (I2CTinyUSBCallbacks::active != nullptr) {
+    if (I2CTinyUSBCallbacks::active.load() != nullptr) {
         // The USB-OTG controller hosts one device.
         err_ = ESP_ERR_INVALID_STATE;
         return false;
@@ -201,10 +212,10 @@ bool I2CTinyUSB::init() {
     usb_config.descriptor.high_speed_config = configuration_descriptor;
 
     // Set before the stack starts, which queries the class driver during initialization.
-    I2CTinyUSBCallbacks::active = this;
+    I2CTinyUSBCallbacks::active.store(this);
     err_ = tinyusb_driver_install(&usb_config);
     if (err_ != ESP_OK) {
-        I2CTinyUSBCallbacks::active = nullptr;
+        I2CTinyUSBCallbacks::active.store(nullptr);
         ESP_LOGE(TAG, "TinyUSB installation failed: %s", esp_err_to_name(err_));
         return false;
     }
@@ -219,9 +230,13 @@ void I2CTinyUSB::deinit() {
     if (!initialized_) {
         return;
     }
+    // Uninstalling deletes the TinyUSB task wherever it is, which could leave the I2C bus locked
+    // mid-transaction. Stall new requests first, then give one already on the bus time to finish.
+    I2CTinyUSBCallbacks::active.store(nullptr);
+    for (int waited = 0; I2CTinyUSBCallbacks::busy.load() != 0 && waited < 100; waited++) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
     err_ = tinyusb_driver_uninstall();
-    // Requests that still arrive are stalled once no instance is active.
-    I2CTinyUSBCallbacks::active = nullptr;
     initialized_ = false;
 }
 

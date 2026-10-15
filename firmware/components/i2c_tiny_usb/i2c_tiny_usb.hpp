@@ -62,6 +62,8 @@ public:
 
     /**
      * @brief Disconnects from the host and uninstalls the TinyUSB device stack.
+     * @note Stalls new requests and waits up to 1 s for a transfer on the I2C bus to finish.
+     * Call it from an application task, not from a TinyUSB callback.
      */
     void deinit();
 

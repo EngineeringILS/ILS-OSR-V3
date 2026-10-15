@@ -8,5 +8,6 @@
 |-------|-----|-----|-----------|-------------------|
 | FeatherS3TFT | 42 | 41 | 100 kHz | GPIO 21 |
 | FeatherS3RevTFT | 3 | 4 | 100 kHz | Not implemented |
+| FeatherS2RevTFT | 3 | 4 | 100 kHz | GPIO 7, high = on (also powers the TFT) |
 
-> Note: Both definitions expose port 0 only. FeatherS3TFT also exposes its GPIO 13 LED configuration.
+> Note: All definitions expose port 0 only. FeatherS3TFT and FeatherS2RevTFT expose their GPIO 13 LED. FeatherS2RevTFT also names the header pins 13 and 12 that abort the I2C breakout firmware when shorted.

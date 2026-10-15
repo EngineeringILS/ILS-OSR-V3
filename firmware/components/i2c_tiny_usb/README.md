@@ -72,6 +72,37 @@ if (ioMsg == "usbi2c") {
 ```
 After a reset, the console comes back and `idf.py flash` works normally.
 
+### Feather ESP32-S2 Reverse TFT (stand-alone breakout)
+The ESP32-S2 has no USB Serial/JTAG console for the test harness, so building for `esp32s2` compiles `firmware/main/breakout_main.cpp` instead of `main.cpp`. It runs the breakout at power-up on the `FeatherS2RevTFT` board config (STEMMA QT on GPIO 3/4, powered by GPIO 7).
+```bash
+idf.py set-target esp32s2
+idf.py build
+```
+To flash, hold BOOT and press RESET to enter the ROM download mode, then run `idf.py -p <port> flash` and press RESET again. The breakout keeps the same USB IDs, so a Jetson that already recognizes the bridge binds to it the same way.
+
+Shorting the header pins labelled **13** and **12** aborts the breakout:
+- **Shorted at power-up:** the breakout never starts.
+- **Shorted while running:** after 100 ms the breakout disconnects from USB. It stays off until reset, even if the short is removed.
+- **LED (pin 13):** on while the breakout runs, off while it starts (or if it failed), blinking once aborted.
+
+A task started first in `app_main` watches the jumper, and the breakout only starts after its first reading comes back clear:
+```cpp
+// 1. Abort jumper watch, before anything touches USB.
+static EventGroupHandle_t events = xEventGroupCreate();
+static const AbortWatch watch{
+    gpio_num_t(board.breakout_abort_drive.gpio_pin),
+    gpio_num_t(board.breakout_abort_sense.gpio_pin),
+    events
+};
+xTaskCreate(abortWatchTask, "abort_watch", 2048, (void *)&watch, 2, nullptr);
+xEventGroupWaitBits(events, JUMPER_CHECKED, pdFALSE, pdTRUE, portMAX_DELAY);
+if (xEventGroupGetBits(events) & JUMPER_SHORTED) {
+    ESP_LOGW(TAG, "Pins 13 and 12 are shorted: I2C breakout aborted");
+    return;
+}
+```
+The task drives pin 13 low and then high, pulling pin 12 against each level. Only a real short follows both levels, so a floating or externally pulled pin 12 never reads as shorted.
+
 ### Configuration
 `I2CTinyUSBConfig` sets the USB identity and the bus limits:
 ```cpp
@@ -217,7 +248,9 @@ These limits fit `i2cdetect`, `i2cget`, `i2cset`, `i2cdump` (byte, word and `i` 
 - [x] Compilation (ESP-IDF v5.4.3, ESP32-S3)
 - [x] Host regression tests: protocol, emulated I2C bus, USB control stages and descriptors
 - [x] Interactive hardware harness (`usbi2c`)
-- [ ] Hardware validation against a Linux host
+- [x] Hardware validation against a Linux host (FeatherS3TFT and a Jetson, Ubuntu 22.04)
+- [x] Compilation for the Feather ESP32-S2 Reverse TFT breakout (`esp32s2`)
+- [ ] Hardware validation on the Feather ESP32-S2 Reverse TFT, including the abort jumper
 - [ ] Maintainer code review after hardware validation
 
 Requires

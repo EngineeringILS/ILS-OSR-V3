@@ -129,6 +129,54 @@ private:
     };
 };
 
+/**
+ * @brief Adafruit ESP32-S2 Reverse TFT Feather (product 5345).
+ * TFT_I2C_POWER (GPIO 7) powers both the TFT and the STEMMA QT connector, and is driven high to enable them.
+ */
+class FeatherS2RevTFT : public Board {
+public:
+    FeatherS2RevTFT() : Board(Manufacturer::Adafruit) {}
+
+    /**
+     * @brief I2C Implementation for the FeatherS2RevTFT board. This board only supports one onboard I2C Port, on STEMMA QT.
+     */
+    bool I2C(size_t portNumber, Protocols::I2CPort &port) override {
+        if (portNumber == 0) {
+            port = I2C_Port_0;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool enableI2C() override {
+        return gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT) == ESP_OK &&
+               gpio_set_level(gpio_num_t(i2c_pwr_pin), 1) == ESP_OK;
+    }
+
+    bool disableI2C() override {
+        return gpio_set_direction(gpio_num_t(i2c_pwr_pin), GPIO_MODE_OUTPUT) == ESP_OK &&
+               gpio_set_level(gpio_num_t(i2c_pwr_pin), 0) == ESP_OK;
+    }
+
+    // Red LED, labelled 13 on the board.
+    Protocols::GPIOConfig led_pwr_pin {.gpio_pin = 13};
+
+    // Header pins labelled 13 and 12. Shorting them aborts the I2C breakout firmware.
+    Protocols::GPIOConfig breakout_abort_drive {.gpio_pin = 13};
+    Protocols::GPIOConfig breakout_abort_sense {.gpio_pin = 12};
+
+private:
+    const int i2c_pwr_pin = 7;
+    static constexpr Protocols::I2CPort I2C_Port_0{
+        .sda_pin = 3,
+        .scl_pin = 4,
+        .i2c_port = 0,
+        .frequency = 100000,
+        .exists = true
+    };
+};
+
 }
 }
 }
