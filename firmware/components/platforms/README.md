@@ -9,4 +9,4 @@
 | FeatherS3TFT | 42 | 41 | 100 kHz | GPIO 21 |
 | FeatherS3RevTFT | 3 | 4 | 100 kHz | Not implemented |
 
-> Note: Both definitions expose port 0 only. FeatherS3TFT also exposes its GPIO 13 LED configuration.
+> Note: Both definitions expose port 0 only. FeatherS3TFT also exposes its GPIO 13 LED configuration and the bridge jumper pins (`bridge_jumper_drive` GPIO 13, `bridge_jumper_sense` GPIO 12).

@@ -92,7 +92,11 @@ public:
     }
 
     Protocols::GPIOConfig led_pwr_pin {.gpio_pin = 13};
-    
+
+    // Header pins labelled 13 and 12. Shorting them at boot keeps the test console instead of the I2C bridge.
+    Protocols::GPIOConfig bridge_jumper_drive {.gpio_pin = 13};
+    Protocols::GPIOConfig bridge_jumper_sense {.gpio_pin = 12};
+
 private:
     const int i2c_pwr_pin = 21;
     static constexpr Protocols::I2CPort I2C_Port_0{

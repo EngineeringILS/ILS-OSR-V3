@@ -13,6 +13,7 @@
 #include <LED.hpp>
 #include <Platforms.hpp>
 #include <driver/gpio.h>
+#include <esp_rom_sys.h>
 #include <cerrno>
 #include <cstdlib>
 #include <freertos/task.h>
@@ -31,38 +32,94 @@ extern "C" {
     void app_main(void);
 };
 
+namespace {
+
+// USB stays on USB Serial/JTAG this long after boot, so the board can be flashed without BOOT+RESET.
+constexpr uint32_t FLASH_WINDOW_MS = 10000;
+
+/**
+ * @brief Tests for a short between the drive and sense pins.
+ * The sense pin is pulled against the driven level in each phase, so only a real short follows
+ * both levels; a floating, pulled or stuck sense pin reads as open.
+ */
+bool pinsShorted(gpio_num_t drive, gpio_num_t sense) {
+    gpio_set_pull_mode(sense, GPIO_PULLUP_ONLY);
+    gpio_set_level(drive, 0);
+    esp_rom_delay_us(20);
+    const bool follows_low = gpio_get_level(sense) == 0;
+
+    gpio_set_pull_mode(sense, GPIO_PULLDOWN_ONLY);
+    gpio_set_level(drive, 1);
+    esp_rom_delay_us(20);
+    const bool follows_high = gpio_get_level(sense) == 1;
+
+    gpio_set_level(drive, 0);
+    return follows_low && follows_high;
+}
+
+/**
+ * @brief Reads the bridge jumper. Three samples 10 ms apart must all see the short.
+ * Leaves the drive pin low (the red LED behind pin 13 off) and the sense pin floating.
+ */
+bool bridgeJumperShorted(gpio_num_t drive, gpio_num_t sense) {
+    gpio_config_t drive_cfg = {};
+    drive_cfg.pin_bit_mask = 1ULL << drive;
+    drive_cfg.mode = GPIO_MODE_OUTPUT;
+    gpio_config(&drive_cfg);
+
+    gpio_config_t sense_cfg = {};
+    sense_cfg.pin_bit_mask = 1ULL << sense;
+    sense_cfg.mode = GPIO_MODE_INPUT;
+    gpio_config(&sense_cfg);
+
+    int hits = 0;
+    for (int i = 0; i < 3; i++) {
+        hits += pinsShorted(drive, sense) ? 1 : 0;
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    gpio_set_pull_mode(sense, GPIO_FLOATING);
+    return hits == 3;
+}
+
+/**
+ * @brief Exposes I2C0 to a USB host as an i2c-tiny-usb adapter until reset.
+ * The bridge takes the USB PHY from USB Serial/JTAG. The NeoPixel blinks green until a host
+ * configures the bridge, and holds green while it is connected.
+ * @return The error, only if the bridge fails to start.
+ */
+esp_err_t runBridge(Drivers::I2CBus &bus, Drivers::Neopixel &neopixel) {
+    // Static storage keeps the bridge buffers off the main task stack.
+    static Drivers::I2CTinyUSB usb_bridge(&bus);
+    if (!usb_bridge.init()) {
+        return usb_bridge.getErr();
+    }
+
+    neopixel.setColor(0, 255, 0);
+    neopixel.blink(500);
+    bool mounted = false;
+    while (true) {
+        if (usb_bridge.isMounted() != mounted) {
+            mounted = !mounted;
+            mounted ? neopixel.on() : neopixel.blink(500);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+}
+
 void app_main(void) {
     // 1. Setup Hardware
     Boards::FeatherS3TFT board;
     board.enableI2C();
-   
+
     Protocols::I2CPort i2cPort0;
     // Get I2C Port 0 from the board (Port 0 exists on FeatherS3)
     board.I2C(0, i2cPort0);
 
     // Attempt to initialize the driver:
     Drivers::I2CBus i2cBus0(i2cPort0);
-    
-    // Attempt to initialize the max1704x:
-    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
-    Max1704x max1704x(0x36,&i2cBus0);
-    max1704x.init();
 
-    INA3221 ina3221(0x40, &i2cBus0);
-    ina3221.init();
-
-    LED red_led(board.led_pwr_pin);
-    red_led.init();
-    
-    // 2. Setup Terminal
-    SerialIO Terminal;
-    Terminal.init();
-
-    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
-    if (!imu.init()) {
-        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
-    }
-    
     Drivers::NeopixelConfig neopixel_config{
     .data = {.gpio_pin = 33},
     .pixel_count = 1,
@@ -75,17 +132,47 @@ void app_main(void) {
     };
 
     Drivers::Neopixel neopixel(neopixel_config);
+    neopixel.init();
 
-    if (neopixel.init()) {
-        neopixel.setColor(0, 255, 0);
-        neopixel.on();
+    // 2. Flash window: the NeoPixel blinks red while USB is left to USB Serial/JTAG.
+    neopixel.setColor(255, 0, 0);
+    neopixel.blink(500);
+    vTaskDelay(pdMS_TO_TICKS(FLASH_WINDOW_MS));
+
+    // 3. Pins 13 and 12 open: start the i2c-tiny-usb bridge (green). Shorted: hold red and run the test console.
+    esp_err_t bridge_err = ESP_OK;
+    if (!bridgeJumperShorted(gpio_num_t(board.bridge_jumper_drive.gpio_pin),
+                             gpio_num_t(board.bridge_jumper_sense.gpio_pin))) {
+        bridge_err = runBridge(i2cBus0, neopixel);
+    }
+    // Solid red on the console; fast red blink if the bridge failed to start.
+    bridge_err == ESP_OK ? neopixel.on() : neopixel.blink(100);
+
+    // Attempt to initialize the max1704x:
+    // Drivers::I2CDevice max1704x(0x36, &i2cBus0); 
+    Max1704x max1704x(0x36,&i2cBus0);
+    max1704x.init();
+
+    INA3221 ina3221(0x40, &i2cBus0);
+    ina3221.init();
+
+    LED red_led(board.led_pwr_pin);
+    red_led.init();
+    
+    // 4. Setup Terminal
+    SerialIO Terminal;
+    Terminal.init();
+
+    Drivers::LSM9DS1 imu(0x6B, &i2cBus0);
+    if (!imu.init()) {
+        Terminal.serial_out("LSM9DS1 [INIT FAIL] " + std::string(esp_err_to_name(imu.getErr())) + "\n");
+    }
+    
+    if (bridge_err != ESP_OK) {
+        Terminal.serial_out("i2c-tiny-usb [INIT FAIL] " + std::string(esp_err_to_name(bridge_err)) + "\n");
     }
 
-    // Exposes I2C0 to a USB host on 'usbi2c'. Construction leaves the USB port to the console.
-    // Static storage keeps the bridge buffers off the main task stack.
-    static Drivers::I2CTinyUSB usb_bridge(&i2cBus0);
-
-    // 3. User Interaction Loop
+    // 5. User Interaction Loop
     std::string ioMsg;
     ioMsg.reserve(512);
     ioMsg = "[TEST START] System Ready. \n";
@@ -152,11 +239,11 @@ void app_main(void) {
             Terminal.serial_out("Switching USB to the i2c-tiny-usb bridge. Press RESET to return to this console.\n");
             vTaskDelay(pdMS_TO_TICKS(100));
             Terminal.deinit();
-            if (usb_bridge.init()) {
-                while (true) { vTaskDelay(portMAX_DELAY); }
-            }
+            bridge_err = runBridge(i2cBus0, neopixel);
+            neopixel.setColor(255, 0, 0);
+            neopixel.blink(100);
             Terminal.init();
-            Terminal.serial_out("i2c-tiny-usb [INIT FAIL] " + std::string(esp_err_to_name(usb_bridge.getErr())) + "\n");
+            Terminal.serial_out("i2c-tiny-usb [INIT FAIL] " + std::string(esp_err_to_name(bridge_err)) + "\n");
         }
         else if (ioMsg == "q") {
             Terminal.serial_out("[TEST END] Quitting...\n");
@@ -170,7 +257,7 @@ void app_main(void) {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    // 4. Cleanup
+    // 6. Cleanup
     Terminal.deinit();
     
     // In a real RTOS app, app_main should not return, but for a test, this is fine.

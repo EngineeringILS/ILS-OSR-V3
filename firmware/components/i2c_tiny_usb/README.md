@@ -51,26 +51,45 @@ extern "C" void app_main(void) {
 }
 ```
 
-### From the Test Console
-`firmware/main/main.cpp` keeps the `SerialIO` console and starts the bridge on the `usbi2c` command. Both use the USB port, so the console releases its driver before the bridge takes over:
-```cpp
-// Before the command loop. Construction does not touch USB.
-static Drivers::I2CTinyUSB usb_bridge(&i2cBus0);
+### In `firmware/main/main.cpp` (Feather ESP32-S3 TFT)
+The test firmware decides at boot whether to run the bridge or the `SerialIO` test console. The NeoPixel shows the state:
 
-// In the command loop:
-if (ioMsg == "usbi2c") {
-    // The bridge takes the USB PHY from the USB Serial/JTAG console until reset.
-    Terminal.serial_out("Switching USB to the i2c-tiny-usb bridge. Press RESET to return to this console.\n");
-    vTaskDelay(pdMS_TO_TICKS(100));
-    Terminal.deinit();
-    if (usb_bridge.init()) {
-        while (true) { vTaskDelay(portMAX_DELAY); }
+| Step | NeoPixel | USB |
+|------|----------|-----|
+| 1. Boot, then a 10 s flash window | Blinking red | USB Serial/JTAG, so `idf.py flash` works without BOOT+RESET |
+| 2a. Header pins 13 and 12 shorted | Solid red | Test console on USB Serial/JTAG; `usbi2c` still starts the bridge |
+| 2b. Pins open | Blinking green, then solid green once a host configures the bridge | i2c-tiny-usb bridge until reset |
+| Bridge failed to start | Fast blinking red | Test console, which prints the error |
+
+To flash a board that is running the bridge, press RESET and flash within the 10 s window, or fit the jumper. The bridge is never stopped at runtime. The jumper is read once, at the end of the window: three samples 10 ms apart must all see the short.
+
+The bridge part of `main.cpp`:
+```cpp
+// Exposes I2C0 to a USB host until reset. Returns only if the bridge fails to start.
+esp_err_t runBridge(Drivers::I2CBus &bus, Drivers::Neopixel &neopixel) {
+    // Static storage keeps the bridge buffers off the main task stack.
+    static Drivers::I2CTinyUSB usb_bridge(&bus);
+    if (!usb_bridge.init()) {
+        return usb_bridge.getErr();
     }
-    Terminal.init();
-    Terminal.serial_out("i2c-tiny-usb [INIT FAIL] " + std::string(esp_err_to_name(usb_bridge.getErr())) + "\n");
+
+    neopixel.setColor(0, 255, 0);
+    neopixel.blink(500);
+    bool mounted = false;
+    while (true) {
+        if (usb_bridge.isMounted() != mounted) {
+            mounted = !mounted;
+            mounted ? neopixel.on() : neopixel.blink(500);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 ```
-After a reset, the console comes back and `idf.py flash` works normally.
+On the console, `usbi2c` releases the console's USB driver before it calls `runBridge()`:
+```cpp
+Terminal.deinit();
+bridge_err = runBridge(i2cBus0, neopixel);
+```
 
 ### Configuration
 `I2CTinyUSBConfig` sets the USB identity and the bus limits:
@@ -192,7 +211,7 @@ sudo sh -c "echo 0x303a 0x4020 > /sys/bus/usb/drivers/i2c-tiny-usb/new_id"
 These limits fit `i2cdetect`, `i2cget`, `i2cset`, `i2cdump` (byte, word and `i` block modes), single writes of up to 256 bytes such as EEPROM page writes, and short `i2ctransfer` sequences. A transaction outside the limits is not split, because splitting would lose its repeated starts. The host gets a NAK (`No such device or address`), and a warning is logged on UART0.
 
 ### Usage Notes
-- `init()` moves the internal USB PHY from USB Serial/JTAG to USB-OTG. `SerialIO` stops working until reset. `ESP_LOG` output continues on UART0. If an application starts the bridge at boot, flash it from the ROM download mode: hold BOOT and press RESET.
+- `init()` moves the internal USB PHY from USB Serial/JTAG to USB-OTG. `SerialIO` stops working until reset. `ESP_LOG` output continues on UART0. If an application starts the bridge at boot without a flash window, flash it from the ROM download mode: hold BOOT and press RESET.
 - Only one instance can be initialized, because there is one USB-OTG controller. A second `init()` fails with `ESP_ERR_INVALID_STATE`.
 - The bus must outlive the bridge. Use static storage for both.
 - The bus stays shared. The other drivers keep working, and i2c_master serializes the transactions. Host writes can change the configuration of sensors that the firmware also uses.
@@ -201,15 +220,15 @@ These limits fit `i2cdetect`, `i2cget`, `i2cset`, `i2cdump` (byte, word and `i` 
 - The component defines the TinyUSB callbacks `tud_vendor_control_xfer_cb()` and `usbd_app_driver_get_cb()`. Do not combine it with another TinyUSB vendor class in the same application.
 
 ### Hardware Validation
-1. Build and flash with ESP-IDF v5.4.3, target `esp32s3`. Open the console and run `scan` to list the targets on I2C0.
+1. Build and flash with ESP-IDF v5.4.3, target `esp32s3`, with header pins 13 and 12 shorted. After 10 s of blinking red, the NeoPixel holds red. Open the console and run `scan` to list the targets on I2C0.
 2. On the Linux host, run the two commands under Linux Host to add the IDs.
-3. Run `usbi2c`. The USB Serial/JTAG device disappears, and `lsusb` shows `303a:4020`.
+3. Remove the jumper and press RESET. After 10 s the NeoPixel turns green, the USB Serial/JTAG device disappears, and `lsusb` shows `303a:4020`. The NeoPixel holds green once the host configures the device.
 4. `dmesg` shows `connected i2c-tiny-usb device`. `i2cdetect -l` lists the new bus `N`.
 5. `sudo i2cdetect -y N` matches the `scan` output.
 6. `sudo i2cget -y N 0x6b 0x0f` returns `0x68`, and `sudo i2cget -y N 0x1e 0x0f` returns `0x3d` (LSM9DS1).
 7. `sudo i2ctransfer -y N w1@0x6b 0x0f r1` returns `0x68` from one transaction with a repeated start.
-8. Write and read back: `sudo i2cset -y N 0x6b 0x07 0x5a`, then `sudo i2cget -y N 0x6b 0x07` returns `0x5a`. The LSM9DS1 is reset by its `init()` on the next boot.
-9. Press RESET and confirm that the console comes back.
+8. Write and read back: `sudo i2cset -y N 0x6b 0x07 0x5a`, then `sudo i2cget -y N 0x6b 0x07` returns `0x5a`. The LSM9DS1 is reset by its `init()` on the next boot with the jumper fitted.
+9. Press RESET and run `idf.py flash` while the NeoPixel blinks red. It flashes without BOOT+RESET.
 
 ### Functionality
 - [x] Zephyr protocol port: `ECHO`, `GET_FUNC`, `SET_DELAY`, `GET_STATUS`, and `I2C_IO` with `BEGIN`/`END`
@@ -217,6 +236,7 @@ These limits fit `i2cdetect`, `i2cget`, `i2cset`, `i2cdump` (byte, word and `i` 
 - [x] Compilation (ESP-IDF v5.4.3, ESP32-S3)
 - [x] Host regression tests: protocol, emulated I2C bus, USB control stages and descriptors
 - [x] Interactive hardware harness (`usbi2c`)
+- [x] Boot-time start with a 10 s flash window and a console jumper (pins 13 and 12)
 - [ ] Hardware validation against a Linux host
 - [ ] Maintainer code review after hardware validation
 
