@@ -80,9 +80,6 @@ motors = [
     ]
 motors : list[Motor] # Pylance Type the Motor Array
 
-# ServoKit Configuration:
-servodriver = ServoKit(channels=channel_count, address=i2c_address, frequency=pwm_frequency)
-
 # Servo Configuration:
 servo_configs : list[ServoConfig] = [
     ServoConfig(channel=0, min_safe=s0_params[0],  straight=s0_params[1], max_safe=s0_params[2], name="Back Right"),
@@ -91,16 +88,13 @@ servo_configs : list[ServoConfig] = [
     ServoConfig(channel=3, min_safe=s3_params[0],  straight=s3_params[1], max_safe=s3_params[2], name="Back Left"),
     ]
 
-# Servo Packing:
-turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
-
-
 def main():
     roboclaws : list[RoboclawUnit]
     servodriver: ServoKit
     roboclaws, servodriver = methods.unified_bringup(candidate_ports=serial_ports,expected_addresses=controller_addreses, roboclaw_names=["Front", "Left", "Right"], motor_configs=motor_configs, baud_rate=baud_rate, 
                             channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, 
                             debug=True)
+    turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
     for servo in turning_servos:
         servo.actuation_range = 300
         servo.set_pulse_width_range(500,2500)

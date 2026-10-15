@@ -26,6 +26,9 @@ import typing
 from typing import Tuple
 
 
+CONTROL_LOOP_INTERVAL_SECONDS = 0.01
+
+
 def unified_bringup(candidate_ports : list[str], expected_addresses : list[int], roboclaw_names : list[str], motor_configs : list[Tuple[Motor, int]],
                     baud_rate : int, channels : int, pwm_frequency: int, i2c_address: int, 
                     debug : bool
@@ -126,6 +129,7 @@ def linear_motor_movement(
                 motors=left_motors + right_motors,
                 roboclaws=roboclaws
             )
+        return
 
     # FAIL SAFE:
     # Any unsupported movement command stops the robot.
@@ -217,6 +221,7 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
     speed = 0
     speed_counter = 0
     stop_counter = 0
+    watchdog_stopped = False
     inplace_turn = False
     try:
         while True:
@@ -224,9 +229,10 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
             speed = speeds[speed_counter]
 
             # Dead Mans STOP:
-            if (stop_counter == 0):
+            if stop_counter == 0 and not watchdog_stopped:
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed,  movement_select=0, stop_counter=stop_counter)
-            if select.select([sys.stdin], [], [], 0)[0]:
+                watchdog_stopped = True
+            if select.select([sys.stdin], [], [], CONTROL_LOOP_INTERVAL_SECONDS)[0]:
                 char_input = sys.stdin.read(1).lower()
 
             if debug:
@@ -259,22 +265,28 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
             if char_input == "f":
                 stop_counter = stop_counts // 4
                 inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=5, stop_counter=stop_counter, inplace_turn=inplace_turn)
+                watchdog_stopped = stop_counter <= 0
               
             if char_input == "g":
                 stop_counter = stop_counts // 4  # Not trying to replicate the famous interstellar scene :(
                 inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=6, stop_counter=stop_counter, inplace_turn=inplace_turn)
+                watchdog_stopped = stop_counter <= 0
                 
             if char_input == "w":
                 stop_counter = stop_counts
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=1, stop_counter=stop_counter)
+                watchdog_stopped = stop_counter <= 0
                 
             elif char_input == "s":
                 stop_counter = stop_counts
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=2, stop_counter=stop_counter)
+                watchdog_stopped = stop_counter <= 0
                 
 
             elif char_input == " ":
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=0, stop_counter=stop_counter)
+                stop_counter = 0
+                watchdog_stopped = True
 
             elif char_input == "b":
                 servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
@@ -303,4 +315,3 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 org_term_settings
             )
     return
-
