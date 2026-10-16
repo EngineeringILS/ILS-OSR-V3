@@ -2,16 +2,16 @@
 motion_methods.py
 Integrated Methods for Setting up and Managing the Roboclaw MCU + PCA9685 Servo Driver.
 Combines roboclaw_methods.py and servo_methods.py, adding the Phase 1 Integrated char_input Loop
-with a control-input watchdog (gradual dead-man decel) and symmetric accel/decel speed ramping.
+with a counter-based dead-man stop and explicit 10 ms loop delay.
 """
 
 ''' System Imports: '''
 import time
-import sys
 import tty
 import termios
-import select
 from typing import Any
+from datacollection.data_types import CommandResult
+from motion_state import MotionHardware, MotionState, MotionTerminal
 
 ''' Servo Method Imports: '''
 from adafruit_servokit import ServoKit
@@ -69,10 +69,7 @@ def linear_motor_movement(
     # SAFETY STOP — robot stops immediately if watchdog expires.
     if stop_counter <= 0:
         macro_set_motor_speed(motors=motors, speed=0)
-        roboclaw_methods.move_motors(
-            motors=motors,
-            roboclaws=roboclaws,
-        )
+        roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
         return
 
     # Hold current steering position during normal linear movement.
@@ -85,28 +82,19 @@ def linear_motor_movement(
     # STOP
     if movement_select == 0:
         macro_set_motor_speed(motors=motors, speed=0)
-        roboclaw_methods.move_motors(
-            motors=motors,
-            roboclaws=roboclaws,
-        )
+        roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
         return
 
     # FORWARD
     if movement_select == 1:
         macro_set_motor_speed(motors=motors, speed=speed)
-        roboclaw_methods.move_motors(
-            motors=motors,
-            roboclaws=roboclaws,
-        )
+        roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
         return
 
     # BACKWARD
     if movement_select == 2:
         macro_set_motor_speed(motors=motors, speed=-speed)
-        roboclaw_methods.move_motors(
-            motors=motors,
-            roboclaws=roboclaws,
-        )
+        roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
         return
 
     # INPLACE TURN
@@ -119,26 +107,17 @@ def linear_motor_movement(
         if movement_select == 3:
             macro_set_motor_speed(left_motors, speed=-speed)
             macro_set_motor_speed(right_motors, speed=speed)
-            roboclaw_methods.move_motors(
-                motors=left_motors + right_motors,
-                roboclaws=roboclaws
-            )
+            roboclaw_methods.move_motors(motors=left_motors + right_motors, roboclaws=roboclaws)
         elif movement_select == 4:
             macro_set_motor_speed(left_motors, speed=speed)
             macro_set_motor_speed(right_motors, speed=-speed)
-            roboclaw_methods.move_motors(
-                motors=left_motors + right_motors,
-                roboclaws=roboclaws
-            )
+            roboclaw_methods.move_motors(motors=left_motors + right_motors, roboclaws=roboclaws)
         return
 
     # FAIL SAFE:
     # Any unsupported movement command stops the robot.
     macro_set_motor_speed(motors=motors, speed=0)
-    roboclaw_methods.move_motors(
-        motors=motors,
-        roboclaws=roboclaws,
-    )
+    roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
     return
 
 """
@@ -209,214 +188,185 @@ def turning_movement(
 
 
 
-def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: list[ServoConfig] , step_degrees: int, 
-                         roboclaws: list[RoboclawUnit], motors: list[Motor], speeds: list[int] = [0], stop_counts: int = 0,
-                         debug: bool = False, imu_collector: Any = None, telemetry_logger: Any = None
-                         ):
-    """
-        Run the interactive motion-control loop for drive motors and steering servos.
+def command_result(state: MotionState, action: str, message: str, terminal: MotionTerminal, status: str = "ok", announce: bool = True) -> CommandResult:
+    """Snapshot an outcome; CSV keeps full text while terminal output is capped."""
+    result = CommandResult(action, status, message, state.selected_speed_qpps, state.drive_mode)
+    if announce:
+        terminal.report(message)
+    return result
 
-        Reads single-character commands from standard input, controls the RoboClaw
-        drive motors and PCA9685 steering servos, and enforces a dead-man watchdog.
-        If IMU collection and telemetry logging are provided, the loop records
-        timestamped command, velocity, watchdog, and LSM9DS1 data without performing
-        sensor I/O directly in the control path.
 
-        The terminal is placed in raw mode while the loop is active. On normal exit
-        or any exception, all motor speeds are commanded to zero, the steering
-        servos are centered, and the original terminal settings are restored.
+def shift_speed(command: str, state: MotionState, hardware: MotionHardware, terminal: MotionTerminal) -> CommandResult:
+    """Change only the selected speed; do not send a motor command."""
+    step = 1 if command == "t" else -1
+    state.speed_index = max(0, min(state.speed_index + step, len(hardware.speeds) - 1))
+    state.selected_speed_qpps = hardware.speeds[state.speed_index]
+    return command_result(state, "shift_speed", f"Speed selected: {state.selected_speed_qpps} QPPS; applies on next drive command.", terminal)
 
-        Args:
-            servodriver: Configured PCA9685 ``ServoKit`` used for steering control.
-            servos: Steering servo objects in the order expected by ``configs``.
-            configs: Calibration and safe-angle configuration for each steering servo.
-            step_degrees: Steering-angle increment applied per steering command.
-            roboclaws: Initialized RoboClaw controllers used to command the motors.
-            motors: Drive-motor state objects mapped to the RoboClaw channels.
-            speeds: Selectable drive speeds in quadrature pulses per second (QPPS).
-                The first entry is selected when the loop starts.
-            stop_counts: Number of control-loop iterations before the dead-man
-                watchdog stops the drive motors. At the nominal 10 ms loop interval,
-                the approximate timeout is ``stop_counts * 0.01`` seconds.
-            debug: If ``True``, print received input and telemetry errors.
-            imu_collector: Optional collector exposing
-                ``latest(max_age_seconds=...)``. Sensor reads should occur on the
-                collector's background thread.
-            telemetry_logger: Optional non-blocking logger exposing ``submit(...)``.
-                Logging is enabled only when both this and ``imu_collector`` are
-                provided.
 
-        Returns:
-            None.
+def stop_drive(state: MotionState, hardware: MotionHardware) -> None:
+    """Attempt zero speed on every controller; raise after collecting failures."""
+    macro_set_motor_speed(hardware.motors, 0)
+    state.watchdog_ticks = 0
+    failures = []
+    for controller in hardware.roboclaws:
+        try:
+            if not controller.unit.SpeedM1M2(controller.address, 0, 0):
+                raise RuntimeError("stop not acknowledged")
+        except Exception as error:
+            failures.append(f"{controller.name}: {error}")
+    state.watchdog_stopped = not failures
+    state.drive_mode = "unknown" if failures else "stopped"
+    if failures:
+        raise RuntimeError("; ".join(failures))
 
-        Raises:
-            OSError: If terminal setup or restoration fails.
-            RuntimeError: If a motor or servo command fails in a called controller
-                method.
-            IndexError: If ``speeds``, ``servos``, or ``configs`` do not contain the
-                entries required by the control loop.
 
-        Safety:
-            The watchdog commands zero motor speed when control input expires.
-            Cleanup also commands every motor to zero and centers steering before
-            restoring the terminal, including when an exception leaves the loop.
-    """
-    # Set terminal to raw mode for immediate single-character input
-    fd = sys.stdin.fileno()
-    org_term_settings = termios.tcgetattr(fd)
-    tty.setraw(fd)
+def apply_motion_command(command: str, state: MotionState, hardware: MotionHardware, terminal: MotionTerminal) -> CommandResult:
+    """Apply drive/steering/stop and update state; hardware errors reach cleanup."""
+    if command in (" ", "c"):
+        stop_drive(state, hardware)
+        if command == "c":
+            servo_methods.hold_zeroes(active_servos=hardware.servos, active_configs=hardware.configs)
+            state.inplace_turn = False
+            state.exit_requested = True
+        return command_result(state, "stop" if command == " " else "exit", "Drive stopped." if command == " " else "Drive stopped; steering centered; exiting.", terminal)
 
-    '''
-    Variable Initialization:
-    '''
-    speed, speed_counter, stop_counter = 0, 0, 0
-    watchdog_stopped, inplace_turn = False, False
-    last_imu_sequence = -1
-    last_input_command = "startup"
-    command_timestamp_ns = time.time_ns()
-    drive_mode = "stopped"
+    # Stop pivot motion before changing wheel geometry.
+    if state.inplace_turn and command in ("a", "q", "d", "e", "b", "w", "s"):
+        stop_drive(state, hardware)
+        servo_methods.hold_zeroes(active_servos=hardware.servos, active_configs=hardware.configs)
+        state.inplace_turn = False
 
-    '''
-    Main Motion Loop:
-    '''
+    if command == "b":
+        servo_methods.hold_zeroes(active_servos=hardware.servos, active_configs=hardware.configs)
+        state.inplace_turn = False
+        return command_result(state, "center", f"Steering centered; drive mode: {state.drive_mode}.", terminal)
+
+    if command in ("a", "q", "d", "e"):
+        selection = {"a": 1, "d": 2, "q": 3, "e": 4}[command]
+        state.inplace_turn = turning_movement(servos=hardware.servos, configs=hardware.configs, roboclaws=hardware.roboclaws, motors=hardware.motors, speed=state.selected_speed_qpps, step_degrees=hardware.step_degrees, movement_select=selection, stop_counter=state.watchdog_ticks, inplace_turn=state.inplace_turn)
+        return command_result(state, "steer", f"Steering command '{command}' applied.", terminal)
+
+    state.watchdog_ticks = hardware.stop_counts // 4 if command in ("f", "g") else hardware.stop_counts
+    if command in ("f", "g"):
+        selection = 5 if command == "f" else 6
+        state.inplace_turn = turning_movement(servos=hardware.servos, configs=hardware.configs, roboclaws=hardware.roboclaws, motors=hardware.motors, speed=state.selected_speed_qpps, step_degrees=hardware.step_degrees, movement_select=selection, stop_counter=state.watchdog_ticks, inplace_turn=state.inplace_turn)
+    elif command in ("w", "s"):
+        linear_motor_movement(servos=hardware.servos, configs=hardware.configs, roboclaws=hardware.roboclaws, motors=hardware.motors, speed=state.selected_speed_qpps, movement_select=1 if command == "w" else 2, stop_counter=state.watchdog_ticks)
+    else:
+        raise ValueError(f"Unsupported motion command: {command!r}")
+    state.watchdog_stopped = state.watchdog_ticks <= 0
+    state.drive_mode = "stopped" if state.watchdog_stopped else {"w": "forward", "s": "reverse", "f": "inplace_left", "g": "inplace_right"}[command]
+    return command_result(state, "motion", f"Drive mode: {state.drive_mode}.", terminal)
+
+
+def check_watchdog(state: MotionState, hardware: MotionHardware, terminal: MotionTerminal) -> CommandResult | None:
+    """Stop once when ticks expire; never depend on steering I/O to stop."""
+    if state.watchdog_ticks > 0 or state.watchdog_stopped:
+        return None
+    state.input_command = "watchdog_stop"
+    state.command_timestamp_ns = time.time_ns()
+    stop_drive(state, hardware)
+    return command_result(state, "watchdog_stop", "Watchdog stop: drive commanded to zero.", terminal)
+
+
+def record_telemetry(state: MotionState, hardware: MotionHardware, collector, logger, terminal: MotionTerminal, result: CommandResult | None = None, announce: bool = True) -> None:
+    """Queue each result, even without an IMU; sample-only rows require new data."""
+    if logger is None or not state.logging_enabled:
+        return
     try:
+        sample = collector.latest(max_age_seconds=0.25) if collector is not None else None
+    except Exception:
+        sample = None
+    if result is None and (sample is None or sample.sequence == state.last_imu_sequence):
+        return
+    try:
+        if logger.last_error is not None:
+            raise RuntimeError("CSV writer failed")
+        accepted = logger.submit(sample, command_timestamp_ns=state.command_timestamp_ns, input_command=state.input_command, drive_mode=state.drive_mode if result is None else result.drive_mode, selected_speed_qpps=state.selected_speed_qpps if result is None else result.selected_speed_qpps, watchdog_ticks_remaining=state.watchdog_ticks, inplace_turn=state.inplace_turn, motors=hardware.motors, action="sample" if result is None else result.action, status="ok" if result is None else result.status, message="" if result is None else result.message)
+        if not accepted and not state.queue_warning_sent and announce:
+            terminal.report("Telemetry queue full; records dropped.")
+            state.queue_warning_sent = True
+        elif accepted:
+            state.queue_warning_sent = False
+        if accepted and sample is not None:
+            state.last_imu_sequence = sample.sequence
+    except Exception:
+        state.logging_enabled = False
+        if announce:
+            terminal.report("Telemetry logging failed; logging disabled.")
+
+
+def shutdown_motion(state: MotionState, hardware: MotionHardware, terminal: MotionTerminal) -> CommandResult:
+    """Attempt all motor stops before centering or reporting; preserve failures."""
+    stop_drive(state, hardware)
+    servo_methods.hold_zeroes(active_servos=hardware.servos, active_configs=hardware.configs)
+    state.inplace_turn = False
+    return command_result(state, "shutdown", "Shutdown: drive stopped; steering centered.", terminal)
+
+
+def motion_movement_loop(servodriver: ServoKit, servos: list[Servo], configs: list[ServoConfig], step_degrees: int, roboclaws: list[RoboclawUnit], motors: list[Motor], speeds: list[int] = [0], stop_counts: int = 0, debug: bool = False, imu_collector: Any = None, telemetry_logger: Any = None, terminal=None):
+    """Poll keys, dispatch actions, log outcomes, and sleep explicitly for 10 ms.
+
+    r/t select speed; a/q/d/e steer; w/s drive; f/g pivot; space stops;
+    b centers; c or input disconnect exits. A shared terminal provides fileno,
+    poll, and report; MotionTerminal caps output at 79 visible characters.
+    Hardware failures are logged and raised after best-effort shutdown.
+    Watchdog ticks include sleep plus processing time, not a fixed deadline.
+    debug is retained for caller compatibility; feedback is event-based.
+    """
+    if not speeds or stop_counts < 0:
+        raise ValueError("Provide at least one speed and a nonnegative watchdog count")
+    terminal = MotionTerminal() if terminal is None else terminal
+    hardware = MotionHardware(servodriver, servos, configs, roboclaws, motors, step_degrees, stop_counts, speeds)
+    state = MotionState(selected_speed_qpps=speeds[0], command_timestamp_ns=time.time_ns())
+    fd = terminal.fileno()
+    original_settings = termios.tcgetattr(fd)
+    failure = None
+    try:
+        tty.setraw(fd)
         while True:
-            char_input = None
-            exit_requested = False
-            command_changed = False
-            speed = speeds[speed_counter]
-
-            # Dead Mans STOP:
-            if stop_counter == 0 and not watchdog_stopped:
-                linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed,  movement_select=0, stop_counter=stop_counter)
-                watchdog_stopped = True
-                drive_mode = "stopped"
-                last_input_command = "watchdog_stop"
-                command_timestamp_ns = time.time_ns()
-                command_changed = True
-            # Poll without blocking; loop pacing is the explicit sleep below.
-            if select.select([sys.stdin], [], [], 0)[0]:
-                char_input = sys.stdin.read(1).lower()
-                last_input_command = "space" if char_input == " " else char_input
-                command_timestamp_ns = time.time_ns()
-                command_changed = True
-
-            if debug:
-                print(char_input, end="\r\n")
-                sys.stdout.flush()
-
-            # Handle Speed Shifting:
-            if char_input == "r":
-                if speed_counter > 0:
-                    speed_counter -= 1
-                else:
-                    speed_counter = 0
-            
-            if char_input == "t":
-                if speed_counter < len(speeds) - 1:
-                    speed_counter += 1
-
-            # Reflect an r/t selection in telemetry from this same input event.
-            speed = speeds[speed_counter]
-                    
-            if char_input == "a":
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=1, stop_counter=stop_counter, inplace_turn=inplace_turn)
-
-            if char_input == "q":
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=3, stop_counter=stop_counter, inplace_turn=inplace_turn)
-                
-            if char_input == "d":
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=2, stop_counter=stop_counter, inplace_turn=inplace_turn)
-
-            if char_input == "e":
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=4, stop_counter=stop_counter, inplace_turn=inplace_turn)
-
-            if char_input == "f":
-                stop_counter = stop_counts // 4
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=5, stop_counter=stop_counter, inplace_turn=inplace_turn)
-                watchdog_stopped = stop_counter <= 0
-                drive_mode = "inplace_left" if stop_counter > 0 else "stopped"
-              
-            if char_input == "g":
-                stop_counter = stop_counts // 4  # Not trying to replicate the famous interstellar scene :(
-                inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=6, stop_counter=stop_counter, inplace_turn=inplace_turn)
-                watchdog_stopped = stop_counter <= 0
-                drive_mode = "inplace_right" if stop_counter > 0 else "stopped"
-                
-            if char_input == "w":
-                stop_counter = stop_counts
-                linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=1, stop_counter=stop_counter)
-                watchdog_stopped = stop_counter <= 0
-                drive_mode = "forward" if stop_counter > 0 else "stopped"
-                
-            elif char_input == "s":
-                stop_counter = stop_counts
-                linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=2, stop_counter=stop_counter)
-                watchdog_stopped = stop_counter <= 0
-                drive_mode = "reverse" if stop_counter > 0 else "stopped"
-                
-
-            elif char_input == " ":
-                linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=0, stop_counter=stop_counter)
-                stop_counter = 0
-                watchdog_stopped = True
-                drive_mode = "stopped"
-
-            elif char_input == "b":
-                servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
-
-            elif char_input == "c":
-                macro_set_motor_speed(motors=motors, speed=0)
-                roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
-                servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
-                stop_counter = 0
-                watchdog_stopped = True
-                drive_mode = "stopped"
-                exit_requested = True
-
-            '''
-            Loop Telemetry:
-            '''
-            if imu_collector is not None and telemetry_logger is not None:
-                sample = imu_collector.latest(max_age_seconds=0.25)
-                if sample is not None and (sample.sequence != last_imu_sequence or command_changed):
-                    try:
-                        telemetry_logger.submit(
-                            sample,
-                            command_timestamp_ns=command_timestamp_ns,
-                            input_command=last_input_command,
-                            drive_mode=drive_mode,
-                            selected_speed_qpps=speed,
-                            watchdog_ticks_remaining=stop_counter,
-                            inplace_turn=inplace_turn,
-                            motors=motors,
-                        )
-                    except Exception as error:
-                        if debug:
-                            print(f"Telemetry logging disabled: {error}", end="\r\n")
-                        telemetry_logger = None
-                    last_imu_sequence = sample.sequence
-
-            if stop_counter != 0 and stop_counter > 0:
-                stop_counter -= 1
-            elif stop_counter < 0:
-                stop_counter = 0
-
-            if exit_requested:
+            result = check_watchdog(state, hardware, terminal)
+            if result is not None:
+                record_telemetry(state, hardware, imu_collector, telemetry_logger, terminal, result)
+            command = terminal.poll()
+            if command is not None:
+                state.input_command = "disconnect" if command == "" else "space" if command == " " else command
+                state.command_timestamp_ns = time.time_ns()
+            match command:
+                case "r" | "t":
+                    result = shift_speed(command, state, hardware, terminal)
+                case "a" | "q" | "d" | "e" | "b" | "w" | "s" | "f" | "g" | " " | "c" | "":
+                    result = apply_motion_command("c" if command == "" else command, state, hardware, terminal)
+                case None:
+                    result = None
+                case _:
+                    result = command_result(state, "ignored", f"Unknown command: {command!r}", terminal, status="ignored")
+            record_telemetry(state, hardware, imu_collector, telemetry_logger, terminal, result)
+            if state.exit_requested:
                 break
-
+            state.watchdog_ticks = max(0, state.watchdog_ticks - 1)
             time.sleep(CONTROL_LOOP_INTERVAL_SECONDS)
-
+    except BaseException as error:
+        failure = error
+        state.drive_mode = "unknown"
+        result = command_result(state, "control_error", f"{type(error).__name__}: {error}", terminal, status="error", announce=False)
+        record_telemetry(state, hardware, imu_collector, telemetry_logger, terminal, result, announce=False)
+        raise
     finally:
         try:
-            for motor in motors:
-                motor.speed = 0
-            roboclaw_methods.move_motors(motors=motors, roboclaws=roboclaws)
-            servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
+            state.input_command = "shutdown"
+            state.command_timestamp_ns = time.time_ns()
+            try:
+                result = shutdown_motion(state, hardware, terminal)
+            except Exception as error:
+                result = command_result(state, "shutdown", f"Shutdown failed: {error}", terminal, status="error")
+                record_telemetry(state, hardware, imu_collector, telemetry_logger, terminal, result)
+                if failure is None:
+                    raise
+            else:
+                record_telemetry(state, hardware, imu_collector, telemetry_logger, terminal, result)
+            if failure is not None:
+                terminal.report(f"Control failed: {failure}")
         finally:
-            termios.tcsetattr(
-                fd,
-                termios.TCSADRAIN,
-                org_term_settings
-            )
-    return
+            termios.tcsetattr(fd, termios.TCSADRAIN, original_settings)

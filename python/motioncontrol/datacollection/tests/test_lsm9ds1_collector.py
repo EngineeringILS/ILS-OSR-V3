@@ -133,6 +133,26 @@ class LSM9DS1CollectorTests(unittest.TestCase):
 
         self.assertEqual(calls, [(9, {"frequency": 400_000})])
 
+    def test_command_result_csv_without_imu_preserves_fields_and_message(self) -> None:
+        motors = [FakeMotor(0, "Left", 100, 90)]
+        message = 'Controller said "failed", retry required\n' + "x" * 100
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "motion.csv"
+            with MotionCSVLogger(path, motors) as logger:
+                logger.submit(None, command_timestamp_ns=6_000_000_007, input_command="w", drive_mode="unknown", selected_speed_qpps=100, watchdog_ticks_remaining=0, inplace_turn=False, motors=motors, action="control_error", status="error", message=message)
+            with path.open(newline="", encoding="utf-8") as log_file:
+                rows = list(csv.DictReader(log_file))
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertNotIn(None, row)
+        self.assertEqual(row["message"], message)
+        self.assertEqual(row["action"], "control_error")
+        self.assertEqual(row["status"], "error")
+        self.assertEqual(row["imu_sec"], "")
+        self.assertEqual(row["temperature_c"], "")
+        self.assertEqual(row["motor_0_left_command_qpps"], "100")
+        self.assertEqual(row["motor_0_left_readback_qpps"], "90")
+
     def test_motion_logger_joins_timestamps_commands_and_velocities(self) -> None:
         collector = LSM9DS1Collector(
             FakeLSM9DS1(),

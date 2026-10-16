@@ -65,6 +65,24 @@ control state:
 - IMU timestamp: when the collector completed the sensor read;
 - input command, active drive mode, selected speed, watchdog state, and turn mode;
 - commanded QPPS and the most recent RoboClaw velocity readback for all motors.
+- action, status, and message returned by command helpers, including failures
+  and shutdown results.
+
+Command events are recorded even if the IMU is absent, stale, or failing; sensor
+columns are blank in those rows. Sample-only rows use `action=sample` and are
+written only for a new sample. CSV messages retain the full helper result;
+operator messages are single-line and capped at 79 visible characters.
+
+Speed selection does not immediately change motor commands. The terminal states
+that the selected speed applies on the next drive command, and the CSV keeps
+selected speed separate from commanded and cached readback velocities. A failed
+hardware command logs `status=error`; it does not certify that motors stopped.
+
+The loop dispatches keys with `match`, polls input without blocking, and sleeps
+explicitly for 10 ms after each continuing iteration. The watchdog remains
+iteration-based: controller I/O and scheduling add to its elapsed timeout.
+Shutdown attempts a zero-speed write to every controller before reporting
+failures. Steering is centered only when all stop writes succeed.
 
 Rows are queued without waiting and written by a background thread. If storage
 cannot keep up, new rows are dropped instead of delaying the motor loop; the
@@ -77,5 +95,5 @@ add serial traffic to the control loop.
 With the dependencies installed and the sensor wired on I²C:
 
 ```bash
-python3 python/datacollection/main.py
+python3 python/motioncontrol/datacollection/main.py
 ```

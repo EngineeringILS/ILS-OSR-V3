@@ -84,7 +84,7 @@ class MotionCSVLogger:
 
     def submit(
         self,
-        imu: LSM9DS1Data,
+        imu: Optional[LSM9DS1Data],
         *,
         command_timestamp_ns: int,
         input_command: str,
@@ -93,6 +93,9 @@ class MotionCSVLogger:
         watchdog_ticks_remaining: int,
         inplace_turn: bool,
         motors: Sequence[object],
+        action: str = "sample",
+        status: str = "ok",
+        message: str = "",
     ) -> bool:
         """Enqueue one joined snapshot; return false rather than blocking if full."""
 
@@ -118,6 +121,9 @@ class MotionCSVLogger:
             inplace_turn=inplace_turn,
             imu=imu,
             motors=motor_data,
+            action=action,
+            status=status,
+            message=message,
         )
         try:
             self._queue.put_nowait(record)
@@ -164,6 +170,7 @@ class MotionCSVLogger:
             "log_sec", "log_nanosec", "command_sec", "command_nanosec",
             "input_command", "drive_mode", "selected_speed_qpps",
             "watchdog_ticks_remaining", "inplace_turn",
+            "action", "status", "message",
             "imu_sec", "imu_nanosec", "imu_frame_id", "imu_sequence",
             "ax_mps2", "ay_mps2", "az_mps2",
             "gx_radps", "gy_radps", "gz_radps",
@@ -187,6 +194,11 @@ class MotionCSVLogger:
             record.selected_speed_qpps,
             record.watchdog_ticks_remaining,
             record.inplace_turn,
+            record.action,
+            record.status,
+            record.message,
+        ]
+        values.extend([
             imu.header.stamp.sec,
             imu.header.stamp.nanosec,
             imu.header.frame_id,
@@ -201,7 +213,7 @@ class MotionCSVLogger:
             imu.magnetic_field.y,
             imu.magnetic_field.z,
             imu.temperature,
-        ]
+        ] if imu is not None else [""] * 14)
         for motor in record.motors:
             values.extend((motor.commanded_qpps, motor.readback_qpps))
         return values

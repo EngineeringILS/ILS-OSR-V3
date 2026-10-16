@@ -103,9 +103,7 @@ def main():
     configured_bus_id = os.environ.get("I2C_BUS_ID")
     i2c_bus_id = int(configured_bus_id) if configured_bus_id is not None else None
     i2c_bus = create_i2c_tiny_usb_bus(i2c_bus_id, frequency=400_000)
-    roboclaws, servodriver = methods.unified_bringup(candidate_ports=serial_ports,expected_addresses=controller_addreses, roboclaw_names=["Front", "Left", "Right"], motor_configs=motor_configs, baud_rate=baud_rate, 
-                            channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, i2c_bus=i2c_bus,
-                            debug=True)
+    roboclaws, servodriver = methods.unified_bringup(candidate_ports=serial_ports, expected_addresses=controller_addreses, roboclaw_names=["Front", "Left", "Right"], motor_configs=motor_configs, baud_rate=baud_rate, channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, i2c_bus=i2c_bus, debug=True)
     imu = create_lsm9ds1_i2c(i2c_bus)
     imu_collector = LSM9DS1Collector(imu, sample_hz=20.0, frame_id="imu_link")
     log_name = datetime.now(timezone.utc).strftime("motion-%Y%m%dT%H%M%SZ.csv")
@@ -116,9 +114,10 @@ def main():
         servo.actuation_range = 300
         servo.set_pulse_width_range(500,2500)
 
-    print(f"Writing motion telemetry to {log_path}")
+    terminal = methods.MotionTerminal()
+    terminal.report("Motion telemetry logging enabled.")
     with telemetry_logger, imu_collector:
-        methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds,stop_counts=50, debug=True, imu_collector=imu_collector, telemetry_logger=telemetry_logger)
+        methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds, stop_counts=50, debug=True, imu_collector=imu_collector, telemetry_logger=telemetry_logger, terminal=terminal)
 
 if __name__ == "__main__":
     main()

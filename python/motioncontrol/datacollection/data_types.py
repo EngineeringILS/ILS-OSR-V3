@@ -108,6 +108,17 @@ class MotorVelocityData:
 
 
 @dataclass(frozen=True, slots=True)
+class CommandResult:
+    """Outcome of a control action; speed selection is not applied velocity."""
+
+    action: str
+    status: str
+    message: str
+    selected_speed_qpps: int
+    drive_mode: str
+
+
+@dataclass(frozen=True, slots=True)
 class MotionTelemetryData:
     """A timestamped IMU sample joined with the current drive state."""
 
@@ -118,5 +129,8 @@ class MotionTelemetryData:
     selected_speed_qpps: int
     watchdog_ticks_remaining: int
     inplace_turn: bool
-    imu: LSM9DS1Data
+    imu: LSM9DS1Data | None
     motors: Tuple[MotorVelocityData, ...]
+    action: str = "sample"
+    status: str = "ok"
+    message: str = ""
