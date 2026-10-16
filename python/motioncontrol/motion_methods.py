@@ -294,7 +294,8 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 last_input_command = "watchdog_stop"
                 command_timestamp_ns = time.time_ns()
                 command_changed = True
-            if select.select([sys.stdin], [], [], CONTROL_LOOP_INTERVAL_SECONDS)[0]:
+            # Poll without blocking; loop pacing is the explicit sleep below.
+            if select.select([sys.stdin], [], [], 0)[0]:
                 char_input = sys.stdin.read(1).lower()
                 last_input_command = "space" if char_input == " " else char_input
                 command_timestamp_ns = time.time_ns()
@@ -403,6 +404,8 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
 
             if exit_requested:
                 break
+
+            time.sleep(CONTROL_LOOP_INTERVAL_SECONDS)
 
     finally:
         try:
