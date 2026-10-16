@@ -7,6 +7,9 @@
 from basicmicro import Basicmicro as Roboclaw
 from adafruit_servokit import ServoKit
 from adafruit_motor.servo import Servo
+from datetime import datetime, timezone
+import os
+from pathlib import Path
 
 ''' Servo Method Imports: '''
 from adafruit_servokit import ServoKit
@@ -28,6 +31,12 @@ from motorcontrol.roboclaw_config import serial_ports, baud_rate, controller_add
 
 '''Unified Imports: '''
 import motion_methods as methods
+from datacollection import (
+    LSM9DS1Collector,
+    MotionCSVLogger,
+    create_i2c_tiny_usb_bus,
+    create_lsm9ds1_i2c,
+)
 
 
 speeds = [0,100,200,400,800,1000,1200,1600,2000,2500,3000,3200]
@@ -91,15 +100,25 @@ servo_configs : list[ServoConfig] = [
 def main():
     roboclaws : list[RoboclawUnit]
     servodriver: ServoKit
+    configured_bus_id = os.environ.get("I2C_BUS_ID")
+    i2c_bus_id = int(configured_bus_id) if configured_bus_id is not None else None
+    i2c_bus = create_i2c_tiny_usb_bus(i2c_bus_id, frequency=400_000)
     roboclaws, servodriver = methods.unified_bringup(candidate_ports=serial_ports,expected_addresses=controller_addreses, roboclaw_names=["Front", "Left", "Right"], motor_configs=motor_configs, baud_rate=baud_rate, 
-                            channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, 
+                            channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, i2c_bus=i2c_bus,
                             debug=True)
+    imu = create_lsm9ds1_i2c(i2c_bus)
+    imu_collector = LSM9DS1Collector(imu, sample_hz=20.0, frame_id="imu_link")
+    log_name = datetime.now(timezone.utc).strftime("motion-%Y%m%dT%H%M%SZ.csv")
+    log_path = Path(__file__).resolve().parents[1] / "log" / log_name
+    telemetry_logger = MotionCSVLogger(log_path, motors)
     turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
     for servo in turning_servos:
         servo.actuation_range = 300
         servo.set_pulse_width_range(500,2500)
 
-    methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds,stop_counts=50, debug=True)
+    print(f"Writing motion telemetry to {log_path}")
+    with telemetry_logger, imu_collector:
+        methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds,stop_counts=50, debug=True, imu_collector=imu_collector, telemetry_logger=telemetry_logger)
 
 if __name__ == "__main__":
     main()

@@ -11,6 +11,7 @@ import sys
 import tty
 import termios
 import select
+from typing import Any
 
 ''' Servo Method Imports: '''
 from adafruit_servokit import ServoKit
@@ -30,15 +31,15 @@ CONTROL_LOOP_INTERVAL_SECONDS = 0.01
 
 
 def unified_bringup(candidate_ports : list[str], expected_addresses : list[int], roboclaw_names : list[str], motor_configs : list[Tuple[Motor, int]],
-                    baud_rate : int, channels : int, pwm_frequency: int, i2c_address: int, 
-                    debug : bool
+                    baud_rate : int, channels : int, pwm_frequency: int, i2c_address: int,
+                    debug : bool, i2c_bus: Any = None
                     ) -> Tuple[list[RoboclawUnit], ServoKit]:
 
     ''' Build the Objects, run the setups, hope they work (prayer emoji): '''
     roboclaws: list[RoboclawUnit] = []
     roboclaws = roboclaw_methods.roboclaw_setup(candidate_ports=candidate_ports, expected_addresses=expected_addresses, names=roboclaw_names, baud_rate=baud_rate, debug=debug)
     roboclaw_methods.motor_setup(motor_configs=motor_configs, roboclaws=roboclaws, debug=debug, readonly=True)
-    servodriver = ServoKit(channels=channels, address=i2c_address, frequency=pwm_frequency)
+    servodriver = ServoKit(channels=channels, i2c=i2c_bus, address=i2c_address, frequency=pwm_frequency)
     servo_methods.servodriver_setup(servo = servodriver, pwm_frequency=pwm_frequency, i2c_address=i2c_address)
     return roboclaws, servodriver
 
@@ -210,7 +211,7 @@ def turning_movement(
 
 def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: list[ServoConfig] , step_degrees: int, 
                          roboclaws: list[RoboclawUnit], motors: list[Motor], speeds: list[int] = [0], stop_counts: int = 0,
-                         debug: bool = False
+                         debug: bool = False, imu_collector: Any = None, telemetry_logger: Any = None
                          ):
 
     # Set terminal to raw mode for immediate single-character input
@@ -223,17 +224,30 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
     stop_counter = 0
     watchdog_stopped = False
     inplace_turn = False
+    last_imu_sequence = -1
+    last_input_command = "startup"
+    command_timestamp_ns = time.time_ns()
+    drive_mode = "stopped"
     try:
         while True:
             char_input = None
+            exit_requested = False
+            command_changed = False
             speed = speeds[speed_counter]
 
             # Dead Mans STOP:
             if stop_counter == 0 and not watchdog_stopped:
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed,  movement_select=0, stop_counter=stop_counter)
                 watchdog_stopped = True
+                drive_mode = "stopped"
+                last_input_command = "watchdog_stop"
+                command_timestamp_ns = time.time_ns()
+                command_changed = True
             if select.select([sys.stdin], [], [], CONTROL_LOOP_INTERVAL_SECONDS)[0]:
                 char_input = sys.stdin.read(1).lower()
+                last_input_command = "space" if char_input == " " else char_input
+                command_timestamp_ns = time.time_ns()
+                command_changed = True
 
             if debug:
                 print(char_input, end="\r\n")
@@ -249,6 +263,9 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
             if char_input == "t":
                 if speed_counter < len(speeds) - 1:
                     speed_counter += 1
+
+            # Reflect an r/t selection in telemetry from this same input event.
+            speed = speeds[speed_counter]
                     
             if char_input == "a":
                 inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=1, stop_counter=stop_counter, inplace_turn=inplace_turn)
@@ -266,27 +283,32 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 stop_counter = stop_counts // 4
                 inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=5, stop_counter=stop_counter, inplace_turn=inplace_turn)
                 watchdog_stopped = stop_counter <= 0
+                drive_mode = "inplace_left" if stop_counter > 0 else "stopped"
               
             if char_input == "g":
                 stop_counter = stop_counts // 4  # Not trying to replicate the famous interstellar scene :(
                 inplace_turn = turning_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, step_degrees=step_degrees, movement_select=6, stop_counter=stop_counter, inplace_turn=inplace_turn)
                 watchdog_stopped = stop_counter <= 0
+                drive_mode = "inplace_right" if stop_counter > 0 else "stopped"
                 
             if char_input == "w":
                 stop_counter = stop_counts
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=1, stop_counter=stop_counter)
                 watchdog_stopped = stop_counter <= 0
+                drive_mode = "forward" if stop_counter > 0 else "stopped"
                 
             elif char_input == "s":
                 stop_counter = stop_counts
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=2, stop_counter=stop_counter)
                 watchdog_stopped = stop_counter <= 0
+                drive_mode = "reverse" if stop_counter > 0 else "stopped"
                 
 
             elif char_input == " ":
                 linear_motor_movement(servos=servos, configs=configs, roboclaws=roboclaws, motors=motors, speed=speed, movement_select=0, stop_counter=stop_counter)
                 stop_counter = 0
                 watchdog_stopped = True
+                drive_mode = "stopped"
 
             elif char_input == "b":
                 servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
@@ -295,12 +317,38 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 macro_set_motor_speed(motors=motors, speed=0)
                 roboclaw_methods.move_motors(roboclaws=roboclaws, motors=motors)
                 servo_methods.servodriver_setzeroes(servodriver=servodriver, s0_pos=configs[0].straight, s1_pos=configs[1].straight, s2_pos=configs[2].straight, s3_pos=configs[3].straight)
-                break
+                stop_counter = 0
+                watchdog_stopped = True
+                drive_mode = "stopped"
+                exit_requested = True
+
+            if imu_collector is not None and telemetry_logger is not None:
+                sample = imu_collector.latest(max_age_seconds=0.25)
+                if sample is not None and (sample.sequence != last_imu_sequence or command_changed):
+                    try:
+                        telemetry_logger.submit(
+                            sample,
+                            command_timestamp_ns=command_timestamp_ns,
+                            input_command=last_input_command,
+                            drive_mode=drive_mode,
+                            selected_speed_qpps=speed,
+                            watchdog_ticks_remaining=stop_counter,
+                            inplace_turn=inplace_turn,
+                            motors=motors,
+                        )
+                    except Exception as error:
+                        if debug:
+                            print(f"Telemetry logging disabled: {error}", end="\r\n")
+                        telemetry_logger = None
+                    last_imu_sequence = sample.sequence
 
             if stop_counter != 0 and stop_counter > 0:
                 stop_counter -= 1
             elif stop_counter < 0:
                 stop_counter = 0
+
+            if exit_requested:
+                break
 
     finally:
         try:
