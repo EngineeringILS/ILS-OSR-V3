@@ -213,21 +213,72 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                          roboclaws: list[RoboclawUnit], motors: list[Motor], speeds: list[int] = [0], stop_counts: int = 0,
                          debug: bool = False, imu_collector: Any = None, telemetry_logger: Any = None
                          ):
+    """
+        Run the interactive motion-control loop for drive motors and steering servos.
 
+        Reads single-character commands from standard input, controls the RoboClaw
+        drive motors and PCA9685 steering servos, and enforces a dead-man watchdog.
+        If IMU collection and telemetry logging are provided, the loop records
+        timestamped command, velocity, watchdog, and LSM9DS1 data without performing
+        sensor I/O directly in the control path.
+
+        The terminal is placed in raw mode while the loop is active. On normal exit
+        or any exception, all motor speeds are commanded to zero, the steering
+        servos are centered, and the original terminal settings are restored.
+
+        Args:
+            servodriver: Configured PCA9685 ``ServoKit`` used for steering control.
+            servos: Steering servo objects in the order expected by ``configs``.
+            configs: Calibration and safe-angle configuration for each steering servo.
+            step_degrees: Steering-angle increment applied per steering command.
+            roboclaws: Initialized RoboClaw controllers used to command the motors.
+            motors: Drive-motor state objects mapped to the RoboClaw channels.
+            speeds: Selectable drive speeds in quadrature pulses per second (QPPS).
+                The first entry is selected when the loop starts.
+            stop_counts: Number of control-loop iterations before the dead-man
+                watchdog stops the drive motors. At the nominal 10 ms loop interval,
+                the approximate timeout is ``stop_counts * 0.01`` seconds.
+            debug: If ``True``, print received input and telemetry errors.
+            imu_collector: Optional collector exposing
+                ``latest(max_age_seconds=...)``. Sensor reads should occur on the
+                collector's background thread.
+            telemetry_logger: Optional non-blocking logger exposing ``submit(...)``.
+                Logging is enabled only when both this and ``imu_collector`` are
+                provided.
+
+        Returns:
+            None.
+
+        Raises:
+            OSError: If terminal setup or restoration fails.
+            RuntimeError: If a motor or servo command fails in a called controller
+                method.
+            IndexError: If ``speeds``, ``servos``, or ``configs`` do not contain the
+                entries required by the control loop.
+
+        Safety:
+            The watchdog commands zero motor speed when control input expires.
+            Cleanup also commands every motor to zero and centers steering before
+            restoring the terminal, including when an exception leaves the loop.
+    """
     # Set terminal to raw mode for immediate single-character input
     fd = sys.stdin.fileno()
     org_term_settings = termios.tcgetattr(fd)
     tty.setraw(fd)
 
-    speed = 0
-    speed_counter = 0
-    stop_counter = 0
-    watchdog_stopped = False
-    inplace_turn = False
+    '''
+    Variable Initialization:
+    '''
+    speed, speed_counter, stop_counter = 0, 0, 0
+    watchdog_stopped, inplace_turn = False, False
     last_imu_sequence = -1
     last_input_command = "startup"
     command_timestamp_ns = time.time_ns()
     drive_mode = "stopped"
+
+    '''
+    Main Motion Loop:
+    '''
     try:
         while True:
             char_input = None
@@ -322,6 +373,9 @@ def motion_movement_loop(servodriver : ServoKit, servos: list[Servo], configs: l
                 drive_mode = "stopped"
                 exit_requested = True
 
+            '''
+            Loop Telemetry:
+            '''
             if imu_collector is not None and telemetry_logger is not None:
                 sample = imu_collector.latest(max_age_seconds=0.25)
                 if sample is not None and (sample.sequence != last_imu_sequence or command_changed):
