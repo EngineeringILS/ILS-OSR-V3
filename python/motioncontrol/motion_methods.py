@@ -34,16 +34,43 @@ def unified_bringup(candidate_ports : list[str], expected_addresses : list[int],
                     baud_rate : int, channels : int, pwm_frequency: int, i2c_address: int,
                     debug : bool, i2c_bus: Any = None
                     ) -> Tuple[list[RoboclawUnit], ServoKit]:
+    """Unified bringup function for setting up Roboclaw MCU and PCA9685 Servo Driver.
 
-    ''' Build the Objects, run the setups, hope they work (prayer emoji): '''
+    This function initializes the Roboclaw units, configures the motors, and sets up the servo driver.
+    It combines the setup steps from both roboclaw_methods.py and servo_methods.py.
+    
+
+    Args:
+        candidate_ports (list[str]): The permitted list of tty/usb's
+        expected_addresses (list[int]): The ordered expected list of each roboclaw
+        roboclaw_names (list[str]): The desired names for each roboclaw
+        motor_configs (list[Tuple[Motor, int]]): The motor configurations as well as their ordering in the motor array
+        baud_rate (int): The baud rate for MCU communication
+        channels (int): The number of ServoDriver channels
+        pwm_frequency (int): The PWM frequency for Servo Communication
+        i2c_address (int): The Address for the ServoDriver
+        debug (bool): Debug Enable
+        i2c_bus (Any, optional): Optional Choice for I2CBus Defaults to None.
+
+    Returns:
+        Tuple[list[RoboclawUnit], ServoKit]: Returns the intialized Roboclaws and ServoKit
+    """
+    
     roboclaws: list[RoboclawUnit] = []
-    roboclaws = roboclaw_methods.roboclaw_setup(candidate_ports=candidate_ports, expected_addresses=expected_addresses, names=roboclaw_names, baud_rate=baud_rate, debug=debug)
+    roboclaws = roboclaw_methods.roboclaw_setup(candidate_ports=candidate_ports, expected_addresses=expected_addresses, 
+                                                names=roboclaw_names, baud_rate=baud_rate, debug=debug)
     roboclaw_methods.motor_setup(motor_configs=motor_configs, roboclaws=roboclaws, debug=debug, readonly=True)
     servodriver = ServoKit(channels=channels, i2c=i2c_bus, address=i2c_address, frequency=pwm_frequency)
     servo_methods.servodriver_setup(servo = servodriver, pwm_frequency=pwm_frequency, i2c_address=i2c_address)
     return roboclaws, servodriver
 
 def macro_set_motor_speed(motors: list[Motor], speed: int):
+    """ Quickly set all motor speed for all motors.
+
+    Args:
+        motors (list[Motor]): The list of motor states to update.
+        speed (int): The speed to update them with.
+    """        
     for motor in motors:
         motor.speed = speed
     return
@@ -66,6 +93,19 @@ def linear_motor_movement(
     movement_select: int,
     stop_counter: int,
 ):
+    """
+    Provides control over linear motor motion, e.g. moves motors backwards and forwards.
+    Sets Motor Speeds, and controls motors, logic is completely separate from steering.
+    Args:
+        servos (list[Servo]): Array of ServoDriver Servo Objects
+        configs (list[ServoConfig]): Array of ServoConfig Objects
+        roboclaws (list[RoboclawUnit]): Array of Roboclaw MCU Objects
+        motors (list[Motor]): Array of Motor Objects
+        speed (int): The desired speed in QPPS
+        movement_select (int): The desired movement state selector
+        stop_counter (int): The stop counter to decrement or reset
+    """    
+
     # SAFETY STOP — robot stops immediately if watchdog expires.
     if stop_counter <= 0:
         macro_set_motor_speed(motors=motors, speed=0)
@@ -131,7 +171,7 @@ def linear_motor_movement(
     6 = TURN IN PLACE RIGHT
     OTHER = DON'T TURN
 """
-def turning_movement(  
+def turning_movement( 
     servos: list[Servo],
     configs: list[ServoConfig],
     roboclaws: list[RoboclawUnit],
@@ -142,7 +182,23 @@ def turning_movement(
     stop_counter: int,
     inplace_turn: bool,
     ) -> bool:
+    """ Provides servo movement and limited motor calls for inplace turning.
+      This function depends on linear_motor_movement being properly integrated.
 
+    Args:
+        servos (list[Servo]): Array of ServoDriver Servo Objects
+        configs (list[ServoConfig]): Array of ServoConfig Objects
+        roboclaws (list[RoboclawUnit]): Array of Roboclaw MCU Objects
+        motors (list[Motor]):  Array of Motor Objects
+        speed (int): The desired speed in QPPS
+        step_degrees (int): The turning step in degrees
+        movement_select (int): The desired movement state selector
+        stop_counter (int):  The stop counter to decrement or reset
+        inplace_turn (bool): State toggle for inplace turning
+
+    Returns:
+        bool: _description_
+    """
     # If we were previously turning in place, and now want to turn normally:
     if inplace_turn and movement_select in (1,2,3,4):
         servo_methods.hold_zeroes(active_servos=servos, active_configs=configs)
@@ -154,18 +210,21 @@ def turning_movement(
         servo_methods.hold_angle(servo=servos[3], config=configs[3])
         return False
 
+    # Turn Left:
     if movement_select == 2:
         servo_methods.turn_servos(active_servos=[servos[1], servos[2]], active_configs=[configs[1], configs[2]], step=step_degrees, step_down= True)
         servo_methods.hold_angle(servo=servos[0], config=configs[0])
         servo_methods.hold_angle(servo=servos[3], config=configs[3])
         return False
 
+    # TODO: Turn back to the Right (verify)
     if movement_select == 3:
         servo_methods.turn_servos(active_servos=[servos[0], servos[3]], active_configs=[configs[0], configs[3]], step=step_degrees, step_down=True)
         servo_methods.hold_angle(servo=servos[1], config=configs[1])
         servo_methods.hold_angle(servo=servos[2], config=configs[2])
         return False
-    
+
+    # TODO: Turn Back to the Left (verify)
     if movement_select == 4:
         servo_methods.turn_servos(active_servos=[servos[0], servos[3]], active_configs=[configs[0], configs[3]], step=step_degrees, step_up=True)
         servo_methods.hold_angle(servo=servos[1], config=configs[1])
