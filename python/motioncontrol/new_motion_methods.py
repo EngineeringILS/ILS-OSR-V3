@@ -54,6 +54,11 @@ class SteerInput(IntEnum):
 CONTROL_LOOP_INTERVAL_SECONDS = 0.01
 
 
+# TODO: Needs a constructor, likely calling bringup():
+# TODO: Needs class-wide error handling, but value_errors() should not be handled for methods not called in the class.
+# TODO: This class ONLY NEEDS TO BE MOVEMENT COMPLETE, DO NOT ADD ADDITIONAL METHODS WITHOUT ASKING
+# TODO: Modifications should not rewrite existing code, unless for a safety critical, or bugfixing reason.
+# TODO: Modifications ought to be minimal, not changing the underlying structure/syntax/style.
 class RoverDrive:
     roboclaws: list[RoboclawUnit]
     motors: list[Motor]
@@ -67,6 +72,11 @@ class RoverDrive:
     movement_state : MovementState
     rotary_state : RotaryState
     debug : bool = False
+
+    # Each Movement call should be issued as a command, even emergyency stop
+    # TODO: Implement command (discuss)
+    class Command:
+        placeholder : int =  0
 
     #TODO: Add a CHECK method that CHECKS if the Roboclaws and Servos are indeed connected. And throw an error if they stop being so.
     def bringup(self, 
@@ -110,12 +120,19 @@ class RoverDrive:
             if debug:
                 print(f"[RoverDrive] bringup failed: {e}")
             raise
+
+    # TODO: Class should own a file
     def log(self):
         return
 
+    # TODO: Make all motors stop by casting speeds to zero, updating motors, running roboclaw_methods.move_motors()
+    # TODO: Needs a DocString
     def stop(self):
         return
 
+    # TODO: Bypass RoboclawMethods entirely, per-unit SpeedM1M2(address, 0, 0)
+    # TODO: Needs a DocString
+    # TODO: Motion Related Errors should be handled by calling this method:
     def emergency_stop(self):
         return
 
@@ -146,6 +163,7 @@ class RoverDrive:
             self.motors[motor_index].speed = speed
 
 
+    # TODO: Needs Docstring
     def hold_servos(self):
         """
         Maintains all Servo Angles:
@@ -155,6 +173,7 @@ class RoverDrive:
         servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
         servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])
 
+    # TODO: Needs Docstring
     def steer_servos(self, input : SteerInput, step: int = 0):
         """
         Steers the Servos based on the input:
@@ -263,7 +282,7 @@ class RoverDrive:
                     step=45,
                     step_down=True,
                 )
-    
+
     def rotary_motion(self, speeds : list[int], left_motors: list[int], right_motors: list[int], debug : bool = False):
         """Rotate in place using opposing left/right motor speeds.
 
