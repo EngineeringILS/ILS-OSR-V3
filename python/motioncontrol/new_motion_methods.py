@@ -72,6 +72,7 @@ class RoverDrive:
     movement_state : MovementState
     rotary_state : RotaryState
     debug : bool = False
+    stop_counts : int = 0
 
     # Each Movement call should be issued as a command, even emergyency stop
     # TODO: Implement command (discuss)
@@ -82,6 +83,7 @@ class RoverDrive:
     def bringup(self, 
                 usb_ports: list[str], rc_addresses: list[int], rc_names: list[str], motor_cfgs: list[Tuple[Motor, int]],
                 baud_rate: int, servo_channels: int, servo_pwm: int, servo_i2c_addr: int,
+                servo_cfgs: list[ServoConfig], stop_counts: int,
                 debug: bool, i2c_bus: Any = None):
         """Unified bringup for Roboclaw MCUs and PCA9685 Servo Driver.
 
@@ -94,12 +96,21 @@ class RoverDrive:
             servo_channels: ServoDriver channel count.
             servo_pwm: Servo PWM frequency.
             servo_i2c_addr: ServoDriver I2C address.
-            debug: Debug en
+            servo_cfgs: Steering servo configurations, ordered as self.servos.
+            stop_counts: Motion ticks permitted per command before the dead-man stop.
+            debug: Debug enable.
             i2c_bus: Optional I2CBus instance.
         """
         self.error = False
         self.error_message = ""
+        self.debug = debug
+        self.stop_counts = stop_counts
+        self.stop_counter = 0
+        self.set_state()
         try:
+            # A repeated bringup releases the prior serial handles.
+            for roboclaw in getattr(self, "roboclaws", []):
+                roboclaw.unit.close()
             roboclaws = roboclaw_methods.roboclaw_setup(
                 candidate_ports=usb_ports, expected_addresses=rc_addresses,
                 names=rc_names, baud_rate=baud_rate, debug=debug)
@@ -108,12 +119,19 @@ class RoverDrive:
             servodriver = ServoKit(
                 channels=servo_channels, i2c=i2c_bus,
                 address=servo_i2c_addr, frequency=servo_pwm)
-            servo_methods.servodriver_setup(
+            if not servo_methods.servodriver_setup(
                 servo=servodriver, pwm_frequency=servo_pwm,
-                i2c_address=servo_i2c_addr)
+                i2c_address=servo_i2c_addr):
+                raise RuntimeError("[BRINGUP] Servo driver not accessible")
             self.roboclaws = roboclaws
             self.motors = [motor for motor, _ in motor_cfgs]
             self.servodriver = servodriver
+            self.configs = servo_cfgs
+            self.servos = [servodriver.servo[config.channel] for config in servo_cfgs]
+            # goBILDA servo range, as configured in main.py.
+            for servo in self.servos:
+                servo.actuation_range = 300
+                servo.set_pulse_width_range(500, 2500)
         except Exception as e:
             self.error = True
             self.error_message = str(e)
