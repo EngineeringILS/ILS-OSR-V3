@@ -9,7 +9,10 @@ with a counter-based dead-man stop and explicit 10 ms loop delay.
 import time
 import tty
 import termios
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import IntEnum
+from pathlib import Path
 from typing import Any
 from datacollection.data_types import CommandResult
 from motion_state import MotionHardware, MotionState, MotionTerminal
@@ -73,6 +76,7 @@ class RoverDrive:
     rotary_state : RotaryState
     debug : bool = False
     stop_counts : int = 0
+    log_file : Any = None
 
     # Each Movement call should be issued as a command, even emergyency stop
     # TODO: Implement command (discuss)
@@ -84,7 +88,7 @@ class RoverDrive:
                 usb_ports: list[str], rc_addresses: list[int], rc_names: list[str], motor_cfgs: list[Tuple[Motor, int]],
                 baud_rate: int, servo_channels: int, servo_pwm: int, servo_i2c_addr: int,
                 servo_cfgs: list[ServoConfig], stop_counts: int,
-                debug: bool, i2c_bus: Any = None):
+                debug: bool, i2c_bus: Any = None, log_path: Any = None):
         """Unified bringup for Roboclaw MCUs and PCA9685 Servo Driver.
 
         Args:
@@ -100,6 +104,7 @@ class RoverDrive:
             stop_counts: Motion ticks permitted per command before the dead-man stop.
             debug: Debug enable.
             i2c_bus: Optional I2CBus instance.
+            log_path: Optional log file path. Defaults to a timestamped file in python/log.
         """
         self.error = False
         self.error_message = ""
@@ -108,6 +113,14 @@ class RoverDrive:
         self.stop_counter = 0
         self.set_state()
         try:
+            if self.log_file is not None:
+                self.log_file.close()
+            if log_path is None:
+                log_name = datetime.now(timezone.utc).strftime("rover-%Y%m%dT%H%M%SZ.log")
+                log_path = Path(__file__).resolve().parents[1] / "log" / log_name
+            log_path = Path(log_path)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            self.log_file = open(log_path, "a", buffering=1)
             # A repeated bringup releases the prior serial handles.
             for roboclaw in getattr(self, "roboclaws", []):
                 roboclaw.unit.close()
@@ -135,13 +148,19 @@ class RoverDrive:
         except Exception as e:
             self.error = True
             self.error_message = str(e)
+            self.log(f"BRINGUP FAILED: {e}")
             if debug:
                 print(f"[RoverDrive] bringup failed: {e}")
             raise
 
-    # TODO: Class should own a file
-    def log(self):
-        return
+    def log(self, message: str):
+        """Append one timestamped line to the log file. Write failures are ignored."""
+        if self.log_file is None:
+            return
+        try:
+            self.log_file.write(f"{time.time_ns()} {message}\n")
+        except (OSError, ValueError):
+            pass
 
     # TODO: Make all motors stop by casting speeds to zero, updating motors, running roboclaw_methods.move_motors()
     # TODO: Needs a DocString
