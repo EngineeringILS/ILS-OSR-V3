@@ -57,7 +57,6 @@ class SteerInput(IntEnum):
 CONTROL_LOOP_INTERVAL_SECONDS = 0.01
 
 
-# TODO: Needs a constructor, likely calling bringup():
 # TODO: This class ONLY NEEDS TO BE MOVEMENT COMPLETE, DO NOT ADD ADDITIONAL METHODS WITHOUT ASKING
 # TODO: Modifications should not rewrite existing code, unless for a safety critical, or bugfixing reason.
 # TODO: Modifications ought to be minimal, not changing the underlying structure/syntax/style.
@@ -82,7 +81,38 @@ class RoverDrive:
     class Command:
         placeholder : int =  0
 
-    #TODO: Add a CHECK method that CHECKS if the Roboclaws and Servos are indeed connected. And throw an error if they stop being so.
+    def __init__(self, *args, **kwargs):
+        """Bring up the hardware. Arguments are those of bringup()."""
+        self.bringup(*args, **kwargs)
+
+    def check_connections(self):
+        """Confirm that every RoboClaw and steering servo responds.
+
+        Raises:
+            RuntimeError: If any device does not respond, after emergency_stop().
+        """
+        failures : list[str] = []
+        for roboclaw in self.roboclaws:
+            try:
+                if not roboclaw.unit.ReadVersion(roboclaw.address)[0]:
+                    failures.append(roboclaw.name)
+            except Exception as e:
+                failures.append(f"{roboclaw.name}: {e}")
+
+        for servo, config in zip(self.servos, self.configs):
+            try:
+                # Reading the angle reads the PCA9685 registers over I2C.
+                servo.angle
+            except Exception as e:
+                failures.append(f"{config.name}: {e}")
+
+        if failures:
+            self.error = True
+            self.error_message = f"[CHECKCONNECTIONS] Not responding: {failures}"
+            self.log(self.error_message)
+            self.emergency_stop()
+            raise RuntimeError(self.error_message)
+
     def bringup(self, 
                 usb_ports: list[str], rc_addresses: list[int], rc_names: list[str], motor_cfgs: list[Tuple[Motor, int]],
                 baud_rate: int, servo_channels: int, servo_pwm: int, servo_i2c_addr: int,
@@ -144,6 +174,7 @@ class RoverDrive:
             for servo in self.servos:
                 servo.actuation_range = 300
                 servo.set_pulse_width_range(500, 2500)
+            self.check_connections()
         except Exception as e:
             self.error = True
             self.error_message = str(e)
