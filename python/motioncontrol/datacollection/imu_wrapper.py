@@ -13,7 +13,7 @@ import ctypes
 import math
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -74,6 +74,7 @@ class StateChange:
     delta_rotation_rad is the bias-corrected gyro integral about each axis, valid
     for small tilt. tilt_change_rad compares gravity while stationary before and
     after the movement. largest_gap_s and read_errors indicate measurement quality.
+    samples holds every sample taken, including the stationary and settle periods.
     """
 
     duration_s: float
@@ -87,6 +88,7 @@ class StateChange:
     end_acceleration: Vector3
     tilt_change_rad: float
     peak_acceleration_change: float
+    samples: tuple[LSM9DS1Data, ...] = field(default=(), repr=False)
 
 
 def _mean(vectors: list[Vector3]) -> Vector3:
@@ -292,4 +294,5 @@ class IMUWrapper:
             end_acceleration=end_acceleration,
             tilt_change_rad=_tilt_between(start_acceleration, end_acceleration),
             peak_acceleration_change=peak_acceleration,
+            samples=tuple(samples),
         )

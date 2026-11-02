@@ -5,7 +5,9 @@ Each call returns once the movement has ended and the motors are stopped.
 """
 
 import time
+from typing import Any, Optional
 
+from datacollection.imu_wrapper import StateChange
 from new_motion_methods import (
     CONTROL_LOOP_INTERVAL_SECONDS,
     MovementState,
@@ -34,38 +36,57 @@ class BlockedMovement:
     """Timed movements that hold the caller until complete.
 
     The control loop runs inside each call. Motors are stopped on completion,
-    on any exception, and on KeyboardInterrupt.
+    on any exception, and on KeyboardInterrupt. When given an IMUWrapper, a call
+    samples the IMU throughout and returns the StateChange; otherwise it returns None.
     """
 
     @staticmethod
-    def moveforward(rover: RoverDrive, speed: int, duration_s: float):
+    def moveforward(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Drive forward with straight wheels.
 
         Args:
             rover: The drive to command.
             speed: Positive speed magnitude in QPPS.
             duration_s: Movement duration in seconds.
+            imu: Optional IMUWrapper to sample during the movement.
+
+        Returns:
+            The StateChange when imu is given, otherwise None.
         """
-        BlockedMovement._prepare(rover, speed, duration_s)
-        rover.set_state(MovementState.FORWARD, RotaryState.NOT_TURN)
-        BlockedMovement._run(rover, duration_s, lambda: rover.linear_motion(speeds=[speed]))
+        return BlockedMovement._execute(imu, rover, BlockedMovement._linear, rover, speed, duration_s, MovementState.FORWARD)
 
     @staticmethod
-    def movebackward(rover: RoverDrive, speed: int, duration_s: float):
+    def movebackward(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Drive backward with straight wheels. Arguments are those of moveforward()."""
-        BlockedMovement._prepare(rover, speed, duration_s)
-        rover.set_state(MovementState.BACKWARD, RotaryState.NOT_TURN)
-        BlockedMovement._run(rover, duration_s, lambda: rover.linear_motion(speeds=[speed]))
+        return BlockedMovement._execute(imu, rover, BlockedMovement._linear, rover, speed, duration_s, MovementState.BACKWARD)
 
     @staticmethod
-    def rotateleft(rover: RoverDrive, speed: int, duration_s: float):
+    def rotateleft(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Rotate left in place, then return the wheels to straight. Arguments are those of moveforward()."""
-        BlockedMovement._rotate(rover, speed, duration_s, RotaryState.TURN_LEFT)
+        return BlockedMovement._execute(imu, rover, BlockedMovement._rotate, rover, speed, duration_s, RotaryState.TURN_LEFT)
 
     @staticmethod
-    def rotateright(rover: RoverDrive, speed: int, duration_s: float):
+    def rotateright(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Rotate right in place, then return the wheels to straight. Arguments are those of moveforward()."""
-        BlockedMovement._rotate(rover, speed, duration_s, RotaryState.TURN_RIGHT)
+        return BlockedMovement._execute(imu, rover, BlockedMovement._rotate, rover, speed, duration_s, RotaryState.TURN_RIGHT)
+
+    @staticmethod
+    def _execute(imu: Any, rover: RoverDrive, movement, *args) -> Optional[StateChange]:
+        """Run the movement, under IMU measurement when an IMU is given."""
+        if imu is None:
+            movement(*args)
+            return None
+        # The gyro bias estimate requires a stationary rover.
+        rover.set_state()
+        rover.stop()
+        return imu.measure(movement, *args)
+
+    @staticmethod
+    def _linear(rover: RoverDrive, speed: int, duration_s: float, movement_state: MovementState):
+        """Straighten the wheels and drive in the given direction."""
+        BlockedMovement._prepare(rover, speed, duration_s)
+        rover.set_state(movement_state, RotaryState.NOT_TURN)
+        BlockedMovement._run(rover, duration_s, lambda: rover.linear_motion(speeds=[speed]))
 
     @staticmethod
     def _rotate(rover: RoverDrive, speed: int, duration_s: float, rotary_state: RotaryState):
