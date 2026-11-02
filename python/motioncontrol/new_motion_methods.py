@@ -322,7 +322,7 @@ class RoverDrive:
             elif len(speeds) != len(self.motors):
                 raise ValueError("[ROTARYMOTION] Speed Array must be 1 or equal to the number of motors")
             # Invalid maximum speed:
-            if any(speed > self.safe_maximum_speed for speed in speeds):
+            if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
                 raise ValueError("[ROTARYMOTION] Unsafe Speed Entered")
 
             if self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state not in (RotaryState.TURN_LEFT, RotaryState.TURN_RIGHT)):
@@ -375,15 +375,14 @@ class RoverDrive:
         debug: bool = False,
     ) -> None:
         """ 
-        This method provides linear motion based on stored motors states, recording and propagating driver failures.
-        As a superset of linear motion, turn-in place is also provided.
+        Drive all motors according to the stored movement state.
+
         Args:
-            servos (list[Servo]): Array of Servos
-            configs (list[ServoConfig]): Array of ServoConfigs
-            speeds list[int: Array with the the desired motor speed in QPPS, 1 length array for uniform motor speeds
-            movement_type (MovementState): The desired movement state
-            stop_counter (int): The stop counter to decrement or reset
-            debug (bool, optional): Optional Debug (produces terminal error outputs). Defaults to False.
+            speeds: Positive speed magnitudes in QPPS. One shared value, or one per motor.
+            debug: Overridden by self.debug.
+
+        Raises:
+            ValueError: If the speed array is invalid; motor commands are unchanged.
         """
         debug = self.debug
         try: 
@@ -394,7 +393,7 @@ class RoverDrive:
             elif len(speeds) != len(self.motors):
                 raise ValueError("[LINEARMOTION] Speed Array must be 1 or equal to the number of motors")
             # Invalid maximum speed:
-            if any(speed > self.safe_maximum_speed for speed in speeds):
+            if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
                 raise ValueError("[LINEARMOTION] Unsafe Speed Entered")
 
             # State Management:
@@ -415,6 +414,9 @@ class RoverDrive:
 
             # If we are here, we are not stopped, and we are not turning in place:
             # We are moving linearly, and we need to set the motors to the desired speeds:
+            # Backward motion is commanded by negative speeds at the driver.
+            if self.movement_state == MovementState.BACKWARD:
+                speeds = [-1 * speed for speed in speeds]
             self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = speeds)
             roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
             self.stop_counter = self.stop_counter - 1      
