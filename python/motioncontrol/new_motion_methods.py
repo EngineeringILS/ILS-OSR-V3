@@ -58,7 +58,6 @@ CONTROL_LOOP_INTERVAL_SECONDS = 0.01
 
 
 # TODO: Needs a constructor, likely calling bringup():
-# TODO: Needs class-wide error handling, but value_errors() should not be handled for methods not called in the class.
 # TODO: This class ONLY NEEDS TO BE MOVEMENT COMPLETE, DO NOT ADD ADDITIONAL METHODS WITHOUT ASKING
 # TODO: Modifications should not rewrite existing code, unless for a safety critical, or bugfixing reason.
 # TODO: Modifications ought to be minimal, not changing the underlying structure/syntax/style.
@@ -239,20 +238,29 @@ class RoverDrive:
             self.motors[motor_index].speed = speed
 
 
-    # TODO: Needs Docstring
     def hold_servos(self):
-        """
-        Maintains all Servo Angles:
-        """
-        servo_methods.hold_angle(servo=self.servos[0], config=self.configs[0])
-        servo_methods.hold_angle(servo=self.servos[1], config=self.configs[1])
-        servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
-        servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])
+        """Rewrite the current angle of every steering servo. A failure triggers emergency_stop()."""
+        try:
+            servo_methods.hold_angle(servo=self.servos[0], config=self.configs[0])
+            servo_methods.hold_angle(servo=self.servos[1], config=self.configs[1])
+            servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
+            servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])
+        except Exception as e:
+            self.error = True
+            self.error_message = str(e)
+            if self.debug:
+                print(f"[HOLDSERVOS] holding servos failed: {e}")
+            self.emergency_stop()
+            raise
 
-    # TODO: Needs Docstring
     def steer_servos(self, input : SteerInput, step: int = 0):
-        """
-        Steers the Servos based on the input:
+        """Step the selected axle, or return all servos to straight.
+
+        Ignored during an in-place turn. A failure triggers emergency_stop().
+
+        Args:
+            input: The steering selection.
+            step: Degrees to step. Unused for STRAIGHT.
         """
         # Case Statement here, logic is plainly simple:
         # Don't hijack the inplace turn:
@@ -287,6 +295,7 @@ class RoverDrive:
             self.error_message = str(e)
             if self.debug:
                 print(f"[STEERSERVOS] steering servos failed: {e}")
+            self.emergency_stop()
             raise
         return
 
@@ -338,26 +347,34 @@ class RoverDrive:
                 f"[SETINPLACESTEER] Servo Sign Out Of Range: {signs}."
             )
 
-        for index, sign in (
-            (i_front_r, sign_fr),
-            (i_front_l, sign_fl),
-            (i_back_r, sign_br),
-            (i_back_l, sign_bl),
-        ):
-            if sign == 1:
-                servo_methods.turn_servos(
-                    active_servos=[self.servos[index]],
-                    active_configs=[self.configs[index]],
-                    step=45,
-                    step_up=True,
-                )
-            else:
-                servo_methods.turn_servos(
-                    active_servos=[self.servos[index]],
-                    active_configs=[self.configs[index]],
-                    step=45,
-                    step_down=True,
-                )
+        try:
+            for index, sign in (
+                (i_front_r, sign_fr),
+                (i_front_l, sign_fl),
+                (i_back_r, sign_br),
+                (i_back_l, sign_bl),
+            ):
+                if sign == 1:
+                    servo_methods.turn_servos(
+                        active_servos=[self.servos[index]],
+                        active_configs=[self.configs[index]],
+                        step=45,
+                        step_up=True,
+                    )
+                else:
+                    servo_methods.turn_servos(
+                        active_servos=[self.servos[index]],
+                        active_configs=[self.configs[index]],
+                        step=45,
+                        step_down=True,
+                    )
+        except Exception as e:
+            self.error = True
+            self.error_message = str(e)
+            if self.debug:
+                print(f"[SETINPLACESTEER] steering servos failed: {e}")
+            self.emergency_stop()
+            raise
 
     def rotary_motion(self, speeds : list[int], left_motors: list[int], right_motors: list[int], debug : bool = False):
         """Rotate in place using opposing left/right motor speeds.
@@ -371,19 +388,22 @@ class RoverDrive:
         Motor index lists must be distinct, non-overlapping, and cover all motors.
         Ensure set_inplace_steer() is called, otherwise, interesting behavior may result!
         """
-        try:
-            debug = self.debug
-            # Unitary setting:
-            if len(speeds) == 1:
-                speeds = speeds * len(self.motors)
-            # Invalid speed input(s):
-            elif len(speeds) != len(self.motors):
-                raise ValueError("[ROTARYMOTION] Speed Array must be 1 or equal to the number of motors")
-            # Invalid maximum speed:
-            if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
-                raise ValueError("[ROTARYMOTION] Unsafe Speed Entered")
+        debug = self.debug
+        # Unitary setting:
+        if len(speeds) == 1:
+            speeds = speeds * len(self.motors)
+        # Invalid speed input(s):
+        elif len(speeds) != len(self.motors):
+            raise ValueError("[ROTARYMOTION] Speed Array must be 1 or equal to the number of motors")
+        # Invalid maximum speed:
+        if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
+            raise ValueError("[ROTARYMOTION] Unsafe Speed Entered")
+        # Invalid motor sides:
+        if sorted(left_motors + right_motors) != list(range(len(self.motors))):
+            raise ValueError("[ROTARYMOTION] Motor Sides must be distinct and cover all motors")
 
-            if self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state not in (RotaryState.TURN_LEFT, RotaryState.TURN_RIGHT)):
+        try:
+            if self.error or self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state not in (RotaryState.TURN_LEFT, RotaryState.TURN_RIGHT)):
                 # set all to zero:
                 self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = [0] * len(self.motors))
                 roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
@@ -421,7 +441,8 @@ class RoverDrive:
             self.error = True
             self.error_message = str(e)
             if debug:
-                print(f"[RoverDrive] linear motor movement failed: {e}")
+                print(f"[RoverDrive] rotary motion failed: {e}")
+            self.emergency_stop()
             raise
         return
     
@@ -444,17 +465,17 @@ class RoverDrive:
             ValueError: If the speed array is invalid; motor commands are unchanged.
         """
         debug = self.debug
-        try: 
-            # Unitary setting:
-            if len(speeds) == 1:
-                speeds = speeds * len(self.motors)
-            # Invalid speed input(s):
-            elif len(speeds) != len(self.motors):
-                raise ValueError("[LINEARMOTION] Speed Array must be 1 or equal to the number of motors")
-            # Invalid maximum speed:
-            if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
-                raise ValueError("[LINEARMOTION] Unsafe Speed Entered")
+        # Unitary setting:
+        if len(speeds) == 1:
+            speeds = speeds * len(self.motors)
+        # Invalid speed input(s):
+        elif len(speeds) != len(self.motors):
+            raise ValueError("[LINEARMOTION] Speed Array must be 1 or equal to the number of motors")
+        # Invalid maximum speed:
+        if any(speed < 0 or speed > self.safe_maximum_speed for speed in speeds):
+            raise ValueError("[LINEARMOTION] Unsafe Speed Entered")
 
+        try: 
             # State Management:
             if (debug): 
                 print(f"[LINEARMOTION] Movement State: {self.movement_state}")
@@ -463,7 +484,7 @@ class RoverDrive:
             
             # Fail fast at invalid stop counter or STOPPED state, or when called somehow during an inplace turn:
             # DEFAULTS TO STOPPED, which either renders the rover immovable, or stopepd.
-            if self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state != RotaryState.NOT_TURN):
+            if self.error or self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state != RotaryState.NOT_TURN):
                 # set all to zero:
                 self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = [0] * len(self.motors))
                 roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
@@ -485,6 +506,7 @@ class RoverDrive:
                     self.error_message = str(e)
                     if debug:
                         print(f"[RoverDrive] linear motor movement failed: {e}")
+                    self.emergency_stop()
                     raise
         return
 
