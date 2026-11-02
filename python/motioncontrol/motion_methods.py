@@ -429,3 +429,8 @@ def motion_movement_loop(servodriver: ServoKit, servos: list[Servo], configs: li
                 terminal.report(f"Control failed: {failure}")
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, original_settings)
+
+
+# TODO:
+# NEW API
+#
