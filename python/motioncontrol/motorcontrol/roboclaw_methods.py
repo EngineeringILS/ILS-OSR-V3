@@ -143,9 +143,13 @@ def move_motors(motors : list[Motor], roboclaws: list[RoboclawUnit]):
         if not staged_readback[i][0]:
             raise RuntimeError(f"{roboclaw.name} failed to read motor speeds")
 
-    # Apply Readback:
+    # Apply Readback, in the same sign convention as motor.speed:
     for motor in motors:
-        motor.actual_speed = staged_readback[motor.index][motor.channel + 1]
+        reading = staged_readback[motor.index][motor.channel + 1]
+        if (motor.encoder_reversed):
+            motor.actual_speed = -1 * reading
+        else:
+            motor.actual_speed = reading
 
 def testing_motor_movement_loop(roboclaws: list[RoboclawUnit], motors: list[Motor], selected_motor: int, speed: int, debug: bool):
     # Set Termios Raw Nonblocking Char input:
