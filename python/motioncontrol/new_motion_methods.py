@@ -77,7 +77,7 @@ CHECK_INTERVAL_COMMANDS = 50
 class RoverDrive:
     roboclaws: list[RoboclawUnit]
     motors: list[Motor]
-    safe_maximum_speed: int = 100
+    safe_maximum_speed: int
     servodriver: ServoKit
     servos: list[Servo]
     configs : list[ServoConfig]
@@ -186,8 +186,14 @@ class RoverDrive:
                 self.emergency_stop()
             raise
 
-    def __init__(self, *args, **kwargs):
-        """Bring up the hardware. Arguments are those of bringup()."""
+    def __init__(self, *args, safe_maximum_speed: int = 100, **kwargs):
+        """Set the speed limit and bring up the hardware.
+
+        Args:
+            safe_maximum_speed: Maximum speed magnitude in QPPS.
+            *args, **kwargs: Arguments of bringup().
+        """
+        self.safe_maximum_speed = safe_maximum_speed
         self.bringup(*args, **kwargs)
 
     def check_connections(self):
