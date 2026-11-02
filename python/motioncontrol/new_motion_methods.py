@@ -162,16 +162,55 @@ class RoverDrive:
         except (OSError, ValueError):
             pass
 
-    # TODO: Make all motors stop by casting speeds to zero, updating motors, running roboclaw_methods.move_motors()
-    # TODO: Needs a DocString
     def stop(self):
-        return
+        """Bring all motors to zero speed through roboclaw_methods.
 
-    # TODO: Bypass RoboclawMethods entirely, per-unit SpeedM1M2(address, 0, 0)
-    # TODO: Needs a DocString
-    # TODO: Motion Related Errors should be handled by calling this method:
+        Escalates to emergency_stop() on failure.
+        """
+        try:
+            self.set_state()
+            self.stop_counter = 0
+            self.set_motors(motor_indices = list(range(len(self.motors))), motor_speeds = [0] * len(self.motors))
+            roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
+        except Exception as e:
+            self.error = True
+            self.error_message = str(e)
+            self.log(f"STOP FAILED: {e}")
+            if self.debug:
+                print(f"[RoverDrive] stop failed: {e}")
+            self.emergency_stop()
+            raise
+
     def emergency_stop(self):
-        return
+        """Command zero speed to every RoboClaw directly, bypassing roboclaw_methods.
+
+        All units are attempted. The fault latches until the next bringup().
+
+        Raises:
+            RuntimeError: If any unit did not acknowledge, after all were attempted.
+        """
+        failures : list[str] = []
+        for roboclaw in self.roboclaws:
+            try:
+                if not roboclaw.unit.SpeedM1M2(roboclaw.address, 0, 0):
+                    failures.append(roboclaw.name)
+            except Exception as e:
+                failures.append(f"{roboclaw.name}: {e}")
+
+        for motor in self.motors:
+            motor.speed = 0
+        self.stop_counter = 0
+        self.set_state()
+        self.error = True
+        if not self.error_message:
+            self.error_message = "Emergency stop issued"
+        self.log(f"EMERGENCY STOP: {self.error_message}")
+
+        if failures:
+            message = f"[EMERGENCYSTOP] Units not stopped: {failures}"
+            self.error_message = f"{self.error_message}; {message}"
+            self.log(message)
+            raise RuntimeError(message)
 
     def set_state(self, movement_state : MovementState = MovementState.STOPPED, rotary_state: RotaryState = RotaryState.STOPPED):
         self.movement_state = movement_state
