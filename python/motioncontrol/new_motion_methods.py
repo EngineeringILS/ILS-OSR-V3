@@ -357,6 +357,7 @@ class RoverDrive:
                 case _:
                     if(debug):
                         print(f'[ROTARYMOTION] NOT TURNING RIGHT OR LEFT')
+            self.stop_counter = self.stop_counter - 1
                 
         except Exception as e:
             self.error = True
