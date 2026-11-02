@@ -27,7 +27,30 @@ from motorcontrol.roboclaw_types import RoboclawUnit, Motor
 import typing
 from typing import Tuple
 
+#TODO migrate to motion_types when convenient:
+# Encodes the general state of how the Rover is moving. 
+# Generally, turn_right, and turn_left mean turn inplace as a state.
+class MovementState(IntEnum):
+    STOPPED = 0
+    FORWARD = 1
+    BACKWARD = 2
+    TURN_INPLACE = 3
 
+# Encodes the specific turn in place rotary state 
+class RotaryState(IntEnum):
+    STOPPED = 0
+    NOT_TURN = 1
+    TURN_LEFT = 2
+    TURN_RIGHT = 3
+
+# Input for steering front or back
+class SteerInput(IntEnum):
+    STRAIGHT = 0
+    FRONT_LEFT = 1
+    FRONT_RIGHT = 2
+    BACK_LEFT = 3
+    BACK_RIGHT = 4
+    
 CONTROL_LOOP_INTERVAL_SECONDS = 0.01
 
 
@@ -37,29 +60,19 @@ class RoverDrive:
     safe_maximum_speed: int = 100
     servodriver: ServoKit
     servos: list[Servo]
+    configs : list[ServoConfig]
     error: bool = False
     error_message: str = ""
-
-    # Encodes the general state of how the Rover is moving. 
-    # Generally, turn_right, and turn_left mean turn inplace as a state.
-    class MovementState(IntEnum):
-        STOPPED = 0
-        FORWARD = 1
-        BACKWARD = 2
-        TURN_INPLACE = 3
-
-    # Encodes the specific turn in place rotary state 
-    class RotaryState(IntEnum):
-        STOPPED = 0
-        NOT_TURN = 1
-        TURN_LEFT = 2
-        TURN_RIGHT = 3
+    stop_counter : int = 0
+    movement_state : MovementState
+    rotary_state : RotaryState
+    debug : bool = False
 
     #TODO: Add a CHECK method that CHECKS if the Roboclaws and Servos are indeed connected. And throw an error if they stop being so.
     def bringup(self, 
                 usb_ports: list[str], rc_addresses: list[int], rc_names: list[str], motor_cfgs: list[Tuple[Motor, int]],
                 baud_rate: int, servo_channels: int, servo_pwm: int, servo_i2c_addr: int,
-                debug: bool, i2c_bus: Any = Nonse):
+                debug: bool, i2c_bus: Any = None):
         """Unified bringup for Roboclaw MCUs and PCA9685 Servo Driver.
 
         Args:
@@ -97,6 +110,21 @@ class RoverDrive:
             if debug:
                 print(f"[RoverDrive] bringup failed: {e}")
             raise
+    def log(self):
+        return
+
+    def stop(self):
+        return
+
+    def emergency_stop(self):
+        return
+
+    def set_state(self, movement_state : MovementState = MovementState.STOPPED, rotary_state: RotaryState = RotaryState.STOPPED):
+        self.movement_state = movement_state
+        self.rotary_state = rotary_state
+        if self.debug:
+            print(f"[RoverDrive] set_state: movement={movement_state}, rotary={rotary_state}")
+
     def set_motors(self, motor_indices: list[int], motor_speeds: list[int]):
         """Set stored speeds for the selected motors.
 
@@ -117,15 +145,196 @@ class RoverDrive:
         for motor_index, speed in zip(motor_indices, motor_speeds):
             self.motors[motor_index].speed = speed
 
+
+    def hold_servos(self):
+        """
+        Maintains all Servo Angles:
+        """
+        servo_methods.hold_angle(servo=self.servos[0], config=self.configs[0])
+        servo_methods.hold_angle(servo=self.servos[1], config=self.configs[1])
+        servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
+        servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])
+
+    def steer_servos(self, input : SteerInput, step: int = 0):
+        """
+        Steers the Servos based on the input:
+        """
+        # Case Statement here, logic is plainly simple:
+        # Don't hijack the inplace turn:
+        if self.rotary_state not in (RotaryState.STOPPED, RotaryState.NOT_TURN):
+            return
+        try:
+            match input:
+                case SteerInput.STRAIGHT:
+                    servo_methods.hold_zeroes(active_servos = self.servos, active_configs = self.configs)
+                case SteerInput.FRONT_RIGHT:
+                    servo_methods.turn_servos(active_servos=[self.servos[1], self.servos[2]], 
+                        active_configs=[self.configs[1], self.configs[2]], step=step, step_up = True)
+                    servo_methods.hold_angle(servo=self.servos[0], config=self.configs[0])
+                    servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])
+                case SteerInput.FRONT_LEFT:
+                    servo_methods.turn_servos(active_servos=[self.servos[1], self.servos[2]], 
+                        active_configs=[self.configs[1], self.configs[2]], step=step, step_down = True)
+                    servo_methods.hold_angle(servo=self.servos[0], config=self.configs[0])
+                    servo_methods.hold_angle(servo=self.servos[3], config=self.configs[3])             
+                case SteerInput.BACK_RIGHT:
+                    servo_methods.turn_servos(active_servos=[self.servos[0], self.servos[3]], 
+                        active_configs=[self.configs[0], self.configs[3]], step=step, step_down = True)
+                    servo_methods.hold_angle(servo=self.servos[1], config=self.configs[1])
+                    servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
+                case SteerInput.BACK_LEFT:
+                    servo_methods.turn_servos(active_servos=[self.servos[0], self.servos[3]], 
+                        active_configs=[self.configs[0], self.configs[3]], step=step, step_up = True)
+                    servo_methods.hold_angle(servo=self.servos[1], config=self.configs[1])
+                    servo_methods.hold_angle(servo=self.servos[2], config=self.configs[2])
+        except Exception as e:
+            self.error = True
+            self.error_message = str(e)
+            if self.debug:
+                print(f"[STEERSERVOS] steering servos failed: {e}")
+            raise
+        return
+
+    def set_inplace_steer(self, 
+                        i_front_r: int, sign_fr: int, 
+                        i_front_l: int, sign_fl: int,
+                        i_back_r: int,  sign_br: int,
+                        i_back_l: int,  sign_bl: int,
+                          ):
+
+        """Offset each corner steering servo by 45 degrees for in-place turning.
+
+        Each sign selects the direction: +1 steps up; -1 steps down.
+        Angles are adjusted from their current positions, so repeated calls
+        apply additional offsets. Servo and configuration indices must match.
+
+        Args:
+            i_front_r: Front-right servo index (0–3).
+            sign_fr: Front-right direction (+1 or -1).
+            i_front_l: Front-left servo index (0–3).
+            sign_fl: Front-left direction (+1 or -1).
+            i_back_r: Back-right servo index (0–3).
+            sign_br: Back-right direction (+1 or -1).
+            i_back_l: Back-left servo index (0–3).
+            sign_bl: Back-left direction (+1 or -1).
+
+        Raises:
+            ValueError: If an index is outside 0–3, indices are duplicated,
+                or a sign is not +1 or -1.
+        """
+
+        indices = (i_front_r, i_front_l, i_back_r, i_back_l)
+        signs = (sign_fr, sign_fl, sign_br, sign_bl)
+
+        if any(index not in range(4) for index in indices):
+            raise ValueError(
+                f"[SETINPLACESTEER] Servo Index Out Of Range: {indices}."
+            )
+
+        if len({i_front_r, i_front_l, i_back_r, i_back_l}) != 4:
+            raise ValueError(
+                f"[SETINPLACESTEER] Duplicate Servo Indices: "
+                f"{i_front_r}, {i_front_l}, {i_back_r}, {i_back_l}."
+            )
+                
+
+        if any(sign not in (-1, 1) for sign in signs):
+            raise ValueError(
+                f"[SETINPLACESTEER] Servo Sign Out Of Range: {signs}."
+            )
+
+        for index, sign in (
+            (i_front_r, sign_fr),
+            (i_front_l, sign_fl),
+            (i_back_r, sign_br),
+            (i_back_l, sign_bl),
+        ):
+            if sign == 1:
+                servo_methods.turn_servos(
+                    active_servos=[self.servos[index]],
+                    active_configs=[self.configs[index]],
+                    step=45,
+                    step_up=True,
+                )
+            else:
+                servo_methods.turn_servos(
+                    active_servos=[self.servos[index]],
+                    active_configs=[self.configs[index]],
+                    step=45,
+                    step_down=True,
+                )
+    
+    def rotary_motion(self, speeds : list[int], left_motors: list[int], right_motors: list[int], debug : bool = False):
+        """Rotate in place using opposing left/right motor speeds.
+
+        Args:
+            speeds: One shared speed or one per motor, ordered as self.motors.
+            left_motors: Left-side indices into self.motors and speeds.
+            right_motors: Right-side indices into self.motors and speeds.
+            debug: Overridden by self.debug.
+
+        Motor index lists must be distinct, non-overlapping, and cover all motors.
+        Ensure set_inplace_steer() is called, otherwise, interesting behavior may result!
+        """
+        try:
+            debug = self.debug
+            # Unitary setting:
+            if len(speeds) == 1:
+                speeds = speeds * len(self.motors)
+            # Invalid speed input(s):
+            elif len(speeds) != len(self.motors):
+                raise ValueError("[ROTARYMOTION] Speed Array must be 1 or equal to the number of motors")
+            # Invalid maximum speed:
+            if any(speed > self.safe_maximum_speed for speed in speeds):
+                raise ValueError("[ROTARYMOTION] Unsafe Speed Entered")
+
+            if self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state not in (RotaryState.TURN_LEFT, RotaryState.TURN_RIGHT)):
+                # set all to zero:
+                self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = [0] * len(self.motors))
+                roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
+                if (debug):
+                    print("[ROTARYMOTION] MOTION STOPPED")
+                return
+        
+            # State Management:
+            if (debug): 
+                print(f"[ROTARYMOTION] Movement State: {self.movement_state}")
+                print(f"[ROTARYMOTION] Rotary State: {self.rotary_state}")
+                print(f"[ROTARYMOTION] Speeds: {speeds}")
+
+            match self.rotary_state:
+                case RotaryState.TURN_LEFT:
+                    if (debug):
+                        print(f"[ROTARYMOTION] TURNING LEFT at {speeds}")
+                    # left moves forward, right moves backward:
+                    self.set_motors(motor_indices = left_motors, motor_speeds = [-1 * speeds[i] for i in left_motors])
+                    self.set_motors(motor_indices = right_motors, motor_speeds = [1 * speeds[i] for i in right_motors])
+                    roboclaw_methods.move_motors(motors=self.motors, roboclaws=self.roboclaws)
+                case RotaryState.TURN_RIGHT:
+                    if(debug):
+                        print(f'[ROTARYMOTION] TURNING RIGHT at {speeds}')
+                    # left moves backward, right moves forward:
+                    self.set_motors(motor_indices = left_motors, motor_speeds = [1 * speeds[i] for i in left_motors])
+                    self.set_motors(motor_indices= right_motors, motor_speeds = [-1 * speeds[i] for i in right_motors])
+                    roboclaw_methods.move_motors(motors=self.motors, roboclaws=self.roboclaws)
+                case _:
+                    if(debug):
+                        print(f'[ROTARYMOTION] NOT TURNING RIGHT OR LEFT')
+                
+        except Exception as e:
+            self.error = True
+            self.error_message = str(e)
+            if debug:
+                print(f"[RoverDrive] linear motor movement failed: {e}")
+            raise
+        return
+    
     # Linear motion should not turn in place:
     # Linear motion may save the state of a steer which is NOT a turn in place.
     # This means forward and backward.
     def linear_motion(
         self,
         speeds: list[int],
-        movement_type: MovementState,
-        rotary_type: RotaryState,
-        stop_counter: int,
         debug: bool = False,
     ) -> None:
         """ 
@@ -139,58 +348,49 @@ class RoverDrive:
             stop_counter (int): The stop counter to decrement or reset
             debug (bool, optional): Optional Debug (produces terminal error outputs). Defaults to False.
         """
+        debug = self.debug
+        try: 
+            # Unitary setting:
+            if len(speeds) == 1:
+                speeds = speeds * len(self.motors)
+            # Invalid speed input(s):
+            elif len(speeds) != len(self.motors):
+                raise ValueError("[LINEARMOTION] Speed Array must be 1 or equal to the number of motors")
+            # Invalid maximum speed:
+            if any(speed > self.safe_maximum_speed for speed in speeds):
+                raise ValueError("[LINEARMOTION] Unsafe Speed Entered")
 
-        # Unitary setting:
-        if len(speeds) == 1:
-            speeds = speeds * len(self.motors)
-        # Invalid speed input(s):
-        elif len(speeds) != len(self.motors):
-            raise ValueError("[MOVEMOTORS] Speed Array must be 1 or equal to the number of motors")
-        # Invalid maximum speed:
-        if any(speed > self.safe_maximum_speed for speed in speeds):
-            raise ValueError("[MOVEMOTORS] Unsafe Speed Entered")
-        # Fail fast at invalid stop counter or STOPPED state, or when called somehow during an inplace turn:
-        # DEFAULTS TO STOPPED, which either renders the rover immovable, or stopepd.
-        if stop_counter <= 0 or (movement_type == self.MovementState.STOPPED) or (rotary_type != self.RotaryState.NOT_TURN):
-            # set all to zero:
-            self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = speeds * 0)
-            roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
+            # State Management:
+            if (debug): 
+                print(f"[LINEARMOTION] Movement State: {self.movement_state}")
+                print(f"[LINEARMOTION] Rotary State: {self.rotary_state}")
+                print(f"[LINEARMOTION] Speeds: {speeds}")
             
-        
+            # Fail fast at invalid stop counter or STOPPED state, or when called somehow during an inplace turn:
+            # DEFAULTS TO STOPPED, which either renders the rover immovable, or stopepd.
+            if self.stop_counter <= 0 or (self.movement_state == MovementState.STOPPED) or (self.rotary_state != RotaryState.NOT_TURN):
+                # set all to zero:
+                self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = [0] * len(self.motors))
+                roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
+                if (debug):
+                    print("[LINEARMOTION] MOTION STOPPED")
+                return
+
+            # If we are here, we are not stopped, and we are not turning in place:
+            # We are moving linearly, and we need to set the motors to the desired speeds:
+            self.set_motors(motor_indices = list(range(len(speeds))), motor_speeds = speeds)
+            roboclaw_methods.move_motors(motors = self.motors, roboclaws = self.roboclaws)
+            self.stop_counter = self.stop_counter - 1      
+  
+        except Exception as e:
+                    self.error = True
+                    self.error_message = str(e)
+                    if debug:
+                        print(f"[RoverDrive] linear motor movement failed: {e}")
+                    raise
         return
 
 
-
-    def move_motor_old(
-        self,
-        servos: list[Servo],
-        configs: list[ServoConfig],
-        speed: int,
-        movement_select: int,
-        stop_counter: int,
-        debug: bool = False,
-    ) -> None:
-        
-        self.error = False
-        self.error_message = ""
-        try:
-            watchdog_active = stop_counter > 0
-            if watchdog_active and movement_select in tuple(self.MovementState):
-                self._hold_steering_position(servos, configs)
-
-            speeds = self._motor_speeds_for_movement(
-                speed, movement_select, watchdog_active)
-            self.set_motors(list(range(len(self.motors))), speeds)
-            # The helper checks Basicmicro write acknowledgements and readback
-            # status, applies encoder polarity, and updates actual motor speeds.
-            roboclaw_methods.move_motors(
-                motors=self.motors, roboclaws=self.roboclaws)
-        except Exception as e:
-            self.error = True
-            self.error_message = str(e)
-            if debug:
-                print(f"[RoverDrive] linear motor movement failed: {e}")
-            raise
 
 
 
