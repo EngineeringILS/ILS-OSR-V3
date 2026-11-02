@@ -53,8 +53,22 @@ class SteerInput(IntEnum):
     FRONT_RIGHT = 2
     BACK_LEFT = 3
     BACK_RIGHT = 4
+
+# Movement actions accepted by RoverDrive.issue()
+class CommandAction(IntEnum):
+    STOP = 0
+    EMERGENCY_STOP = 1
+    FORWARD = 2
+    BACKWARD = 3
+    TURN_LEFT = 4
+    TURN_RIGHT = 5
+    STEER = 6
+    INPLACE_STEER = 7
+    HOLD = 8
     
 CONTROL_LOOP_INTERVAL_SECONDS = 0.01
+# Commands issued between connection checks; approximately 0.5 s at the loop interval.
+CHECK_INTERVAL_COMMANDS = 50
 
 
 # TODO: This class ONLY NEEDS TO BE MOVEMENT COMPLETE, DO NOT ADD ADDITIONAL METHODS WITHOUT ASKING
@@ -75,11 +89,102 @@ class RoverDrive:
     debug : bool = False
     stop_counts : int = 0
     log_file : Any = None
+    check_counter : int = 0
 
-    # Each Movement call should be issued as a command, even emergyency stop
-    # TODO: Implement command (discuss)
+    @dataclass(frozen=True, slots=True)
     class Command:
-        placeholder : int =  0
+        """One movement instruction for issue().
+
+        Args:
+            action: The movement to perform.
+            speeds: Positive magnitudes in QPPS. One shared value, or one per motor.
+            steer_input: Steering selection for STEER.
+            step: Degrees for STEER.
+            left_motors: Left-side motor indices for TURN_LEFT and TURN_RIGHT.
+            right_motors: Right-side motor indices for TURN_LEFT and TURN_RIGHT.
+            inplace_steer: The eight set_inplace_steer() arguments for INPLACE_STEER.
+            refill: Refill the dead-man. A control loop repeating a command passes False.
+            issued_ns: Issue time in nanoseconds.
+        """
+        action : CommandAction
+        speeds : list[int] = field(default_factory=lambda: [0])
+        steer_input : SteerInput = SteerInput.STRAIGHT
+        step : int = 0
+        left_motors : list[int] = field(default_factory=list)
+        right_motors : list[int] = field(default_factory=list)
+        inplace_steer : tuple[int, ...] = ()
+        refill : bool = True
+        issued_ns : int = field(default_factory=time.time_ns)
+
+    def issue(self, command: Command):
+        """Execute one movement command.
+
+        STOP and EMERGENCY_STOP are always accepted. Other actions are refused while
+        a fault is latched. Only commands with refill set are logged.
+
+        Args:
+            command: The command to execute.
+
+        Raises:
+            ValueError: If the command is invalid. The prior state remains in force.
+            RuntimeError: If a fault is latched, or the hardware fails.
+        """
+        action = command.action
+        if command.refill:
+            self.log(f"COMMAND {action.name} speeds={command.speeds} issued_ns={command.issued_ns}")
+
+        if action == CommandAction.EMERGENCY_STOP:
+            self.emergency_stop()
+            return
+        if action == CommandAction.STOP:
+            self.stop()
+            return
+        if self.error:
+            raise RuntimeError(f"[ISSUE] Refused, fault latched: {self.error_message}")
+        if action == CommandAction.INPLACE_STEER and len(command.inplace_steer) != 8:
+            raise ValueError("[ISSUE] INPLACE_STEER requires eight arguments")
+
+        prior_state = (self.movement_state, self.rotary_state, self.stop_counter)
+        try:
+            self.check_counter = self.check_counter + 1
+            if self.check_counter >= CHECK_INTERVAL_COMMANDS:
+                self.check_counter = 0
+                self.check_connections()
+
+            if command.refill and action in (CommandAction.FORWARD, CommandAction.BACKWARD, CommandAction.TURN_LEFT, CommandAction.TURN_RIGHT):
+                self.stop_counter = self.stop_counts
+
+            match action:
+                case CommandAction.FORWARD:
+                    self.set_state(MovementState.FORWARD, RotaryState.NOT_TURN)
+                    self.linear_motion(speeds = command.speeds)
+                case CommandAction.BACKWARD:
+                    self.set_state(MovementState.BACKWARD, RotaryState.NOT_TURN)
+                    self.linear_motion(speeds = command.speeds)
+                case CommandAction.TURN_LEFT:
+                    self.set_state(MovementState.TURN_INPLACE, RotaryState.TURN_LEFT)
+                    self.rotary_motion(speeds = command.speeds, left_motors = command.left_motors, right_motors = command.right_motors)
+                case CommandAction.TURN_RIGHT:
+                    self.set_state(MovementState.TURN_INPLACE, RotaryState.TURN_RIGHT)
+                    self.rotary_motion(speeds = command.speeds, left_motors = command.left_motors, right_motors = command.right_motors)
+                case CommandAction.STEER:
+                    self.steer_servos(input = command.steer_input, step = command.step)
+                case CommandAction.INPLACE_STEER:
+                    # Offsets are relative; zeroing first keeps a repeated command from accumulating.
+                    servo_methods.hold_zeroes(active_servos = self.servos, active_configs = self.configs)
+                    self.set_inplace_steer(*command.inplace_steer)
+                case CommandAction.HOLD:
+                    self.hold_servos()
+        except ValueError:
+            if not self.error:
+                self.movement_state, self.rotary_state, self.stop_counter = prior_state
+            raise
+        except Exception as e:
+            if not self.error:
+                self.error = True
+                self.error_message = str(e)
+                self.emergency_stop()
+            raise
 
     def __init__(self, *args, **kwargs):
         """Bring up the hardware. Arguments are those of bringup()."""
