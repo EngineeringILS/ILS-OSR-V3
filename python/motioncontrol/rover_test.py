@@ -43,13 +43,15 @@ def save_imu_samples(path: Path, change: StateChange, clock_offset_ns: int):
 '''
 Static Definitions and Configuration:
 '''
-# Standard Configuration:
-FRONT_LEFT   = Motor(index=0, channel=0, id=0, name="Front Left",   encoder_reversed=True)
-FRONT_RIGHT  = Motor(index=1, channel=0, id=1, name="Front Right",  encoder_reversed=False) 
+# Physical wiring and forward-command signs used by the embodied-control harness.
+# Controller indices follow controller_addreses: RC1=0x80, RC2=0x81, RC3=0x82.
+# channel=0 is M1; channel=1 is M2. encoder_reversed negates commands/readback.
+FRONT_LEFT   = Motor(index=0, channel=0, id=0, name="Front Left",   encoder_reversed=False)
+FRONT_RIGHT  = Motor(index=2, channel=0, id=1, name="Front Right",  encoder_reversed=True)
 MIDDLE_LEFT  = Motor(index=0, channel=1, id=2, name="Middle Left",  encoder_reversed=True)
-MIDDLE_RIGHT = Motor(index=1, channel=1, id=3, name="Middle Right", encoder_reversed=False) 
-BACK_LEFT    = Motor(index=2, channel=1, id=4, name="Back Left",    encoder_reversed=True)
-BACK_RIGHT   = Motor(index=2, channel=0, id=5, name="Back Right",   encoder_reversed=False) 
+MIDDLE_RIGHT = Motor(index=2, channel=1, id=3, name="Middle Right", encoder_reversed=False)
+BACK_LEFT    = Motor(index=1, channel=1, id=4, name="Back Left",    encoder_reversed=False)
+BACK_RIGHT   = Motor(index=1, channel=0, id=5, name="Back Right",   encoder_reversed=True)
 
 # Tumbler Configuration:
 FRONT_LEFT_QPPS   = 3200
@@ -144,7 +146,7 @@ def rover_initialize():
         Rover.bringup(
             usb_ports=serial_ports,
             rc_addresses=controller_addreses,
-            rc_names=["Front", "Left", "Right"],
+            rc_names=["RC1 FL/ML", "RC2 BR/BL", "RC3 FR/MR"],
             motor_cfgs=motor_configs,
             baud_rate=baud_rate,
             servo_channels=channel_count,

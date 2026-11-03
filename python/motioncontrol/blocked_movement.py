@@ -24,10 +24,10 @@ from new_motion_methods import (
 LEFT_MOTORS = [0, 2, 4]
 RIGHT_MOTORS = [1, 3, 5]
 INPLACE_STEER = {
-    "i_front_r": 1, "sign_fr": -1,
-    "i_front_l": 2, "sign_fl": 1,
-    "i_back_r": 0, "sign_br": 1,
-    "i_back_l": 3, "sign_bl": -1,
+    "i_front_r": 1, "sign_fr": 1,
+    "i_front_l": 2, "sign_fl": -1,
+    "i_back_r": 0, "sign_br": -1,
+    "i_back_l": 3, "sign_bl": 1,
 }
 
 # Estimated servo travel time. To be confirmed on the bench.

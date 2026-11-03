@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -55,4 +56,7 @@ def create_i2c_tiny_usb_bus(
 
     from adafruit_extended_bus import ExtendedI2C
 
-    return ExtendedI2C(bus_id, frequency=frequency)
+    # Blinka cannot set the Linux bus rate and warns on every open; the adapter sets it.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="I2C frequency is not settable", category=RuntimeWarning)
+        return ExtendedI2C(bus_id, frequency=frequency)
