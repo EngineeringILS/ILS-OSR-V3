@@ -5,5 +5,6 @@
             "envManager": "ms-python.python:venv",
             "packageManager": "ms-python.python:pip"
         }
-    ]
+    ],
+    "cmake.sourceDirectory": "/home/adenmann/Projects/ILS-OSR-V3/python/motioncontrol/datacollection/lsm9ds1_driver"
 }
