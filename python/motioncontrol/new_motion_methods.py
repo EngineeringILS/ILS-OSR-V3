@@ -87,15 +87,20 @@ class RoverDrive:
         stop_counter : int
         timestamp_ns : int = field(default_factory=time.time_ns)
 
-    def __init__(self, *args, safe_maximum_speed: int = 100, **kwargs):
-        """Set the speed limit and bring up the hardware.
+    def __init__(self, safe_maximum_speed: int = 100):
+        """Set the speed limit. Movement is refused until bringup() succeeds.
 
         Args:
             safe_maximum_speed: Maximum speed magnitude in QPPS.
-            *args, **kwargs: Arguments of bringup().
         """
         self.safe_maximum_speed = safe_maximum_speed
-        self.bringup(*args, **kwargs)
+        self.roboclaws = []
+        self.motors = []
+        self.servos = []
+        self.configs = []
+        self.error = True
+        self.error_message = "[ROVERDRIVE] Bringup not performed"
+        self.set_state()
 
     def check_connections(self):
         """Confirm that every RoboClaw and steering servo responds.

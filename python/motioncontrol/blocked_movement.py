@@ -9,7 +9,7 @@ Call flow:
 """
 
 import time
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from datacollection.imu_wrapper import StateChange
 from new_motion_methods import (
@@ -61,25 +61,25 @@ class BlockedMovement:
         Returns:
             The StateChange when imu is given, otherwise None.
         """
-        return BlockedMovement._execute(imu, rover, BlockedMovement._linear, rover, speed, duration_s, MovementState.FORWARD)
+        return BlockedMovement._execute(imu, rover, lambda: BlockedMovement._linear(rover, speed, duration_s, MovementState.FORWARD))
 
     @staticmethod
     def movebackward(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Drive backward with straight wheels. Arguments are those of moveforward()."""
-        return BlockedMovement._execute(imu, rover, BlockedMovement._linear, rover, speed, duration_s, MovementState.BACKWARD)
+        return BlockedMovement._execute(imu, rover, lambda: BlockedMovement._linear(rover, speed, duration_s, MovementState.BACKWARD))
 
     @staticmethod
     def rotateleft(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Rotate left in place, then return the wheels to straight. Arguments are those of moveforward()."""
-        return BlockedMovement._execute(imu, rover, BlockedMovement._rotate, rover, speed, duration_s, RotaryState.TURN_LEFT)
+        return BlockedMovement._execute(imu, rover, lambda: BlockedMovement._rotate(rover, speed, duration_s, RotaryState.TURN_LEFT))
 
     @staticmethod
     def rotateright(rover: RoverDrive, speed: int, duration_s: float, imu: Any = None) -> Optional[StateChange]:
         """Rotate right in place, then return the wheels to straight. Arguments are those of moveforward()."""
-        return BlockedMovement._execute(imu, rover, BlockedMovement._rotate, rover, speed, duration_s, RotaryState.TURN_RIGHT)
+        return BlockedMovement._execute(imu, rover, lambda: BlockedMovement._rotate(rover, speed, duration_s, RotaryState.TURN_RIGHT))
 
     @staticmethod
-    def _execute(imu: Any, rover: RoverDrive, movement, *args) -> Optional[StateChange]:
+    def _execute(imu: Any, rover: RoverDrive, movement: Callable[[], None]) -> Optional[StateChange]:
         """Run the movement, under IMU measurement when an IMU is given.
 
         Flow with an IMU: stop the motors, then imu.measure() samples while stationary,
@@ -89,19 +89,18 @@ class BlockedMovement:
         Args:
             imu: Optional IMUWrapper.
             rover: The drive to stop before measurement.
-            movement: _linear or _rotate.
-            *args: Arguments of the movement, including the rover.
+            movement: The movement, called with no arguments.
 
         Returns:
             The StateChange when imu is given, otherwise None.
         """
         if imu is None:
-            movement(*args)
+            movement()
             return None
         # The gyro bias estimate requires a stationary rover.
         rover.set_state()
         rover.stop()
-        return imu.measure(movement, *args)
+        return imu.measure(movement)
 
     @staticmethod
     def _linear(rover: RoverDrive, speed: int, duration_s: float, movement_state: MovementState):

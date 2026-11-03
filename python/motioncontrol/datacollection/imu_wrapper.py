@@ -205,16 +205,15 @@ class IMUWrapper:
         self._sequence = self._sequence + 1
         return data
 
-    def measure(self, movement: Callable[..., object], *args: object, stationary_s: float = 1.0,
-                settle_s: float = 0.5, sample_hz: float = 100.0, **kwargs: object) -> StateChange:
+    def measure(self, movement: Callable[[], object], stationary_s: float = 1.0,
+                settle_s: float = 0.5, sample_hz: float = 100.0) -> StateChange:
         """Run a blocking movement and return the measured state change.
 
         The rover must be stationary when called. The gyro bias is estimated over
         stationary_s beforehand; sampling continues for settle_s afterward.
 
         Args:
-            movement: The blocking movement, such as BlockedMovement.rotateleft.
-            *args, **kwargs: Arguments of the movement.
+            movement: The blocking movement, called with no arguments.
             stationary_s: Stationary period before the movement, in seconds.
             settle_s: Period after the movement, in seconds.
             sample_hz: Target sample rate.
@@ -243,7 +242,7 @@ class IMUWrapper:
         try:
             time.sleep(stationary_s)
             start_index = len(samples)
-            movement(*args, **kwargs)
+            movement()
             end_index = len(samples)
             time.sleep(settle_s)
         finally:
