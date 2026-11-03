@@ -103,7 +103,13 @@ DYNAMIC CONFIGURATION:
 run_name = "MOV_TRL_7" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 log_dir = Path(__file__).resolve().parents[1] / "log"
 
-def main():
+def move_calibration(Rover : RoverDrive):
+    BlockedMovement.moveforward(Rover, 200, 2.0)
+    BlockedMovement.movebackward(Rover, 200, 2.0)
+    BlockedMovement.rotateleft(Rover, 200, 2.0)
+    BlockedMovement.rotateright(Rover, 200, 2.0)
+
+def rover_initialize():
     # I2C Setup for NVIDIA Jetson:
     print("[I2CSETUP] Begin:")
     try:
@@ -114,7 +120,7 @@ def main():
         bus_path = f"/dev/i2c-{i2c_bus_id}" if i2c_bus_id is not None else None
     except Exception as e:
         print(f"[I2CSETUP] Failed to create I2C bus: {e}\n{traceback.format_exc()}")
-        return
+        return 
     print("[I2CSETUP] End")
 
     print("[IMUSETUP] Begin:")
@@ -145,17 +151,22 @@ def main():
             servo_pwm=pwm_frequency,
             servo_i2c_addr=i2c_address,
             servo_cfgs=servo_configs,
-            debug=True,
+            debug=False,
             i2c_bus=i2c_bus,
             log_path=log_dir / f"rover-{run_name}.csv",
         )
     except Exception as e:
         print(f"[ROVER] Failed to bring up rover: {e}\n{traceback.format_exc()}")
-        return
-    
-    return
+        return 
+
+    print(f"[ROVER] RoverDrive initialization complete.")
+    return Rover
+
+def main():
+    Rover = rover_initialize()
+
 
 
 
 if __name__ == "__main__":
-    main()
+    Rover = rover_initialize()
