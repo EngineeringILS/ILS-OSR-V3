@@ -4,12 +4,16 @@ RoverDrive: setup and movement methods for the Roboclaw MCU + PCA9685 Servo Driv
 """
 
 ''' System Imports: '''
+import csv
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import IntEnum
 from pathlib import Path
 from typing import Any
+
+''' Data Collection Imports: '''
+from datacollection.motion_logging import _column_name
 
 ''' Servo Method Imports: '''
 from adafruit_servokit import ServoKit
@@ -73,6 +77,7 @@ class RoverDrive:
     rotary_state : RotaryState
     debug : bool = False
     log_file : Any = None
+    log_writer : Any = None
 
     @dataclass(frozen=True, slots=True)
     class Command:
@@ -149,7 +154,7 @@ class RoverDrive:
             servo_cfgs: Steering servo configurations, ordered as self.servos.
             debug: Debug enable.
             i2c_bus: Optional I2CBus instance.
-            log_path: Optional log file path. Defaults to a timestamped file in python/log.
+            log_path: Optional CSV log path. Defaults to a timestamped file in python/log.
         """
         self.error = False
         self.error_message = ""
@@ -160,11 +165,20 @@ class RoverDrive:
             if self.log_file is not None:
                 self.log_file.close()
             if log_path is None:
-                log_name = datetime.now(timezone.utc).strftime("rover-%Y%m%dT%H%M%SZ.log")
+                log_name = datetime.now(timezone.utc).strftime("rover-%Y%m%dT%H%M%SZ.csv")
                 log_path = Path(__file__).resolve().parents[1] / "log" / log_name
             log_path = Path(log_path)
             log_path.parent.mkdir(parents=True, exist_ok=True)
-            self.log_file = open(log_path, "a", buffering=1)
+            self.log_file = open(log_path, "a", newline="", buffering=1)
+            # Time, record and motor columns are named as in the MotionCSVLogger output.
+            columns = ["log_sec", "log_nanosec", "action", "status", "message",
+                       "movement_state", "rotary_state", "stop_counter"]
+            for motor, _ in motor_cfgs:
+                prefix = f"motor_{motor.id}_{_column_name(motor.name)}"
+                columns.extend((f"{prefix}_command_qpps", f"{prefix}_readback_qpps"))
+            self.log_writer = csv.DictWriter(self.log_file, fieldnames=columns, restval="", extrasaction="ignore")
+            if log_path.stat().st_size == 0:
+                self.log_writer.writeheader()
             # A repeated bringup releases the prior serial handles.
             for roboclaw in getattr(self, "roboclaws", []):
                 roboclaw.unit.close()
@@ -199,7 +213,7 @@ class RoverDrive:
             raise
 
     def log(self, action: str, status: str = "ok", message: str = "") -> Command:
-        """Record one method result in the log file and return it. Write failures are ignored."""
+        """Record one method result as a CSV row and return it. Write failures are ignored."""
         motors = getattr(self, "motors", [])
         command = self.Command(
             action=action, status=status, message=message,
@@ -207,9 +221,20 @@ class RoverDrive:
             actual_speeds=[motor.actual_speed for motor in motors],
             movement_state=self.movement_state, rotary_state=self.rotary_state,
             stop_counter=self.stop_counter)
-        if self.log_file is not None:
+        if self.log_writer is not None:
+            log_sec, log_nanosec = divmod(command.timestamp_ns, 1_000_000_000)
+            row = {
+                "log_sec": log_sec, "log_nanosec": log_nanosec,
+                "action": command.action, "status": command.status, "message": command.message,
+                "movement_state": command.movement_state.name, "rotary_state": command.rotary_state.name,
+                "stop_counter": command.stop_counter,
+            }
+            for motor in motors:
+                prefix = f"motor_{motor.id}_{_column_name(motor.name)}"
+                row[f"{prefix}_command_qpps"] = motor.speed
+                row[f"{prefix}_readback_qpps"] = motor.actual_speed
             try:
-                self.log_file.write(f"{command}\n")
+                self.log_writer.writerow(row)
             except (OSError, ValueError):
                 pass
         return command
