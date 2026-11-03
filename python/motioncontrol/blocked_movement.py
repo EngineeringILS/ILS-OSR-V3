@@ -2,6 +2,10 @@
 blocked_movement.py
 Blocking movements built on RoverDrive.
 Each call returns once the movement has ended and the motors are stopped.
+
+Call flow:
+    moveforward, movebackward -> _execute -> _linear -> _prepare, _run
+    rotateleft, rotateright   -> _execute -> _rotate -> _prepare, _run
 """
 
 import time
@@ -38,6 +42,10 @@ class BlockedMovement:
     The control loop runs inside each call. Motors are stopped on completion,
     on any exception, and on KeyboardInterrupt. When given an IMUWrapper, a call
     samples the IMU throughout and returns the StateChange; otherwise it returns None.
+
+    The public methods select the direction only. _execute applies the optional
+    measurement, _linear and _rotate sequence the movement, _prepare makes the
+    rover ready, and _run holds the timed control loop.
     """
 
     @staticmethod
@@ -72,7 +80,21 @@ class BlockedMovement:
 
     @staticmethod
     def _execute(imu: Any, rover: RoverDrive, movement, *args) -> Optional[StateChange]:
-        """Run the movement, under IMU measurement when an IMU is given."""
+        """Run the movement, under IMU measurement when an IMU is given.
+
+        Flow with an IMU: stop the motors, then imu.measure() samples while stationary,
+        runs the movement, and samples while settling. The measured movement includes
+        the servo moves and settling time of _linear and _rotate.
+
+        Args:
+            imu: Optional IMUWrapper.
+            rover: The drive to stop before measurement.
+            movement: _linear or _rotate.
+            *args: Arguments of the movement, including the rover.
+
+        Returns:
+            The StateChange when imu is given, otherwise None.
+        """
         if imu is None:
             movement(*args)
             return None
@@ -83,16 +105,27 @@ class BlockedMovement:
 
     @staticmethod
     def _linear(rover: RoverDrive, speed: int, duration_s: float, movement_state: MovementState):
-        """Straighten the wheels and drive in the given direction."""
+        """Straighten the wheels and drive in the given direction.
+
+        Flow: prepare the rover, set the movement state, then run linear_motion each
+        tick until the deadline. The wheels remain straight on return.
+        """
         BlockedMovement._prepare(rover, speed, duration_s)
+        # linear_motion applies the sign for the direction from this state.
         rover.set_state(movement_state, RotaryState.NOT_TURN)
         BlockedMovement._run(rover, duration_s, lambda: rover.linear_motion(speeds=[speed]))
 
     @staticmethod
     def _rotate(rover: RoverDrive, speed: int, duration_s: float, rotary_state: RotaryState):
-        """Steer for an in-place turn, rotate, and straighten the wheels."""
+        """Steer for an in-place turn, rotate, and straighten the wheels.
+
+        Flow: prepare the rover, steer to the in-place position and wait for the servos,
+        set the rotary state, run rotary_motion each tick until the deadline, then
+        straighten. If _run raises, the motors are stopped but the wheels stay steered.
+        """
         BlockedMovement._prepare(rover, speed, duration_s)
         rover.set_inplace_steer(**INPLACE_STEER)
+        # The wheels must arrive before the motors turn.
         time.sleep(SERVO_SETTLE_SECONDS)
         rover.set_state(MovementState.TURN_INPLACE, rotary_state)
         BlockedMovement._run(rover, duration_s, lambda: rover.rotary_motion(
@@ -102,6 +135,9 @@ class BlockedMovement:
     @staticmethod
     def _prepare(rover: RoverDrive, speed: int, duration_s: float):
         """Validate the request, stop the motors and straighten the wheels.
+
+        Flow: reject an invalid request before any hardware command, clear the movement
+        state, stop the motors, then straighten and wait for the servos.
 
         Raises:
             ValueError: If the speed or duration is invalid. Nothing has moved.
@@ -123,6 +159,11 @@ class BlockedMovement:
     def _run(rover: RoverDrive, duration_s: float, motion):
         """Call the motion method each tick until the deadline, then stop the motors.
 
+        Flow per tick: refill the stop counter, call the motion method, check the
+        connections every CHECK_INTERVAL_TICKS, then wait for the next tick. Tick times
+        are absolute, so a late tick does not extend the schedule. The motors are
+        stopped however the loop ends.
+
         Raises:
             RuntimeError: If the rover refuses motion, or a connection check fails.
         """
@@ -133,16 +174,20 @@ class BlockedMovement:
             while time.monotonic() < deadline:
                 # One tick permitted; refilled while this loop runs.
                 rover.stop_counter = 1
+                # A stopped result means the rover refused the motion, so the loop ends.
                 if motion().status == "stopped":
                     raise RuntimeError(f"[BLOCKEDMOVEMENT] Motion refused: {rover.error_message}")
 
+                # Periodic connection check.
                 ticks = ticks + 1
                 if ticks >= CHECK_INTERVAL_TICKS:
                     ticks = 0
                     rover.check_connections()
 
+                # Wait until the next scheduled tick; no wait if already late.
                 next_tick += CONTROL_LOOP_INTERVAL_SECONDS
                 time.sleep(max(0.0, next_tick - time.monotonic()))
         finally:
+            # Reached on completion, on any exception and on KeyboardInterrupt.
             rover.set_state()
             rover.stop()
