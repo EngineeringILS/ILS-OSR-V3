@@ -98,24 +98,43 @@ servo_configs : list[ServoConfig] = [
     ]
 
 def main():
+    # Bringup order: I2C bus, Roboclaws and servo driver, IMU, telemetry log, servos,
+    # operator terminal, then the motion loop.
     roboclaws : list[RoboclawUnit]
     servodriver: ServoKit
+
+    # I2C bus, shared by the servo driver and the IMU. I2C_BUS_ID selects the adapter;
+    # if unset, a single i2c-tiny-usb adapter is located automatically.
     configured_bus_id = os.environ.get("I2C_BUS_ID")
     i2c_bus_id = int(configured_bus_id) if configured_bus_id is not None else None
     i2c_bus = create_i2c_tiny_usb_bus(i2c_bus_id, frequency=400_000)
+
+    # Roboclaws, motors and PCA9685. Names follow the order of controller_addreses.
+    # Motor setup is read-only, so the QPPS values above are not written to the controllers.
     roboclaws, servodriver = methods.unified_bringup(candidate_ports=serial_ports, expected_addresses=controller_addreses, roboclaw_names=["Front", "Left", "Right"], motor_configs=motor_configs, baud_rate=baud_rate, channels=channel_count, pwm_frequency=pwm_frequency, i2c_address=i2c_address, i2c_bus=i2c_bus, debug=True)
+
+    # IMU at 20 Hz. Sampling begins when the collector is entered below.
     imu = create_lsm9ds1_i2c(i2c_bus)
     imu_collector = LSM9DS1Collector(imu, sample_hz=20.0, frame_id="imu_link")
+
+    # Telemetry log, named by UTC start time, under python/log/.
     log_name = datetime.now(timezone.utc).strftime("motion-%Y%m%dT%H%M%SZ.csv")
     log_path = Path(__file__).resolve().parents[1] / "log" / log_name
     telemetry_logger = MotionCSVLogger(log_path, motors)
+
+    # Steering servos by channel: Back Right, Front Right, Front Left, Back Left.
+    # Range and pulse widths apply to all four.
     turning_servos : list[Servo] = [servodriver.servo[0], servodriver.servo[1], servodriver.servo[2], servodriver.servo[3]]
     for servo in turning_servos:
         servo.actuation_range = 300
         servo.set_pulse_width_range(500,2500)
 
+    # Operator terminal, shared with the motion loop for key input and status output.
     terminal = methods.MotionTerminal()
     terminal.report("Motion telemetry logging enabled.")
+    # The logger and collector run for the duration of the loop and stop on exit.
+    # stop_counts is the watchdog limit in loop ticks; at the 10 ms sleep, at least 0.5 s.
+    # Pivots (f/g) use a quarter of it.
     with telemetry_logger, imu_collector:
         methods.motion_movement_loop(servodriver=servodriver, servos=turning_servos, configs=servo_configs, step_degrees=step_degrees, roboclaws=roboclaws, motors=motors, speeds=speeds, stop_counts=50, debug=True, imu_collector=imu_collector, telemetry_logger=telemetry_logger, terminal=terminal)
 
