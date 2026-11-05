@@ -74,6 +74,8 @@ class StateChange:
     delta_rotation_rad is the bias-corrected gyro integral about each axis, valid
     for small tilt. tilt_change_rad compares gravity while stationary before and
     after the movement. largest_gap_s and read_errors indicate measurement quality.
+    sensor_resets counts power-on resets detected and recovered during the
+    measurement; each loses samples.
     samples holds every sample taken, including the stationary and settle periods.
     """
 
@@ -88,6 +90,7 @@ class StateChange:
     end_acceleration: Vector3
     tilt_change_rad: float
     peak_acceleration_change: float
+    sensor_resets: int = 0
     samples: tuple[LSM9DS1Data, ...] = field(default=(), repr=False)
 
 
@@ -144,6 +147,7 @@ class IMUWrapper:
 
         self._frame_id = frame_id
         self._sequence = 0
+        self.resets = 0
         self._bus = _Bus(-1)
         self._device = _Device()
         self._open = False
@@ -189,11 +193,19 @@ class IMUWrapper:
     def read(self) -> LSM9DS1Data:
         """Read one complete sample. The header stamp is CLOCK_MONOTONIC.
 
+        A sensor found reset to its power-on defaults is reconfigured, and the
+        read raises; self.resets counts these.
+
         Raises:
-            RuntimeError: If the driver reports a failure.
+            RuntimeError: If the driver reports a failure, or the sensor had reset.
         """
         sample = _Sample()
         self._check(self._core.lsm9ds1_read_sample(ctypes.byref(self._device), ctypes.byref(sample)))
+        # After a power-on reset the accelerometer is powered down and reads exactly zero.
+        if not any(sample.acceleration_m_s2):
+            self.resets = self.resets + 1
+            self._check(self._core.lsm9ds1_initialize(ctypes.byref(self._device)))
+            raise RuntimeError("[IMUWRAPPER] Sensor reset detected; configuration restored")
         data = LSM9DS1Data(
             header=Header(stamp=Time.from_nanoseconds(sample.monotonic_timestamp_ns), frame_id=self._frame_id),
             linear_acceleration=Vector3.from_iterable(sample.acceleration_m_s2),
@@ -224,6 +236,7 @@ class IMUWrapper:
         """
         samples : list[LSM9DS1Data] = []
         errors = [0]
+        resets_before = self.resets
         finished = threading.Event()
         period_s = 1.0 / sample_hz
 
@@ -249,10 +262,11 @@ class IMUWrapper:
             finished.set()
             worker.join()
 
-        return self._summarize(samples, start_index, end_index, errors[0])
+        return self._summarize(samples, start_index, end_index, errors[0], self.resets - resets_before)
 
     @staticmethod
-    def _summarize(samples: list[LSM9DS1Data], start_index: int, end_index: int, read_errors: int) -> StateChange:
+    def _summarize(samples: list[LSM9DS1Data], start_index: int, end_index: int, read_errors: int,
+                   sensor_resets: int = 0) -> StateChange:
         """Compute the state change from the stationary, movement and settle samples."""
         before = samples[:start_index]
         after = samples[end_index:]
@@ -285,6 +299,7 @@ class IMUWrapper:
             duration_s=(tracked[-1].header.stamp.to_nanoseconds() - tracked[0].header.stamp.to_nanoseconds()) / 1e9,
             sample_count=len(tracked),
             read_errors=read_errors,
+            sensor_resets=sensor_resets,
             largest_gap_s=largest_gap_s,
             gyro_bias_rad_s=bias,
             delta_rotation_rad=Vector3(*rotation),

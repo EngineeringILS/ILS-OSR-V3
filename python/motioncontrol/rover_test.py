@@ -117,7 +117,8 @@ def imu_calibration(Rover : RoverDrive, logName : str):
 
     Each of those runs one blocked movement for the given seconds and saves its IMU
     samples as imu-<logName>-<trial>-<movement>.csv. left and right print the heading
-    change about the sensor z axis; forward and backward print the distance moved,
+    change, positive to the left; the IMU is mounted with its z axis down, so heading
+    is the negated z rotation. forward and backward print the distance moved,
     estimated by integrating acceleration in the sensor x-y plane.
     """
     global imu, left, right, forward, backward
@@ -161,14 +162,15 @@ def imu_calibration(Rover : RoverDrive, logName : str):
 
     def report_rotation(name: str, seconds: float, change: StateChange):
         rotation = change.delta_rotation_rad
-        print(f"[IMU] {name} {seconds} s: dtheta {math.degrees(rotation.z):+.1f} deg "
+        print(f"[IMU] {name} {seconds} s: dtheta {-math.degrees(rotation.z):+.1f} deg "
               f"(x {math.degrees(rotation.x):+.1f}, y {math.degrees(rotation.y):+.1f}; "
-              f"{change.sample_count} samples, {change.read_errors} read errors)")
+              f"{change.sample_count} samples, {change.read_errors} read errors, {change.sensor_resets} resets)")
 
     def report_distance(name: str, seconds: float, change: StateChange):
         dx, dy = displacement(change)
         print(f"[IMU] {name} {seconds} s: moved {math.hypot(dx, dy):.2f} m "
-              f"(x {dx:+.2f}, y {dy:+.2f}; {change.sample_count} samples, {change.read_errors} read errors)")
+              f"(x {dx:+.2f}, y {dy:+.2f}; {change.sample_count} samples, {change.read_errors} read errors, "
+              f"{change.sensor_resets} resets)")
 
     def left(seconds: float, speed: int = 200):
         report_rotation("left", seconds, measure(BlockedMovement.rotateleft, "left", seconds, speed))
