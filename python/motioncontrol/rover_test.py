@@ -119,7 +119,7 @@ def imu_calibration(Rover : RoverDrive, logName : str):
     samples as imu-<logName>-<trial>-<movement>.csv. left and right print the heading
     change, positive to the left; the IMU is mounted with its z axis down, so heading
     is the negated z rotation. forward and backward print the distance moved,
-    estimated by integrating acceleration in the sensor x-y plane.
+    estimated by integrating acceleration in the sensor x-y plane, and the heading change.
     """
     global imu, left, right, forward, backward
 
@@ -168,7 +168,8 @@ def imu_calibration(Rover : RoverDrive, logName : str):
 
     def report_distance(name: str, seconds: float, change: StateChange):
         dx, dy = displacement(change)
-        print(f"[IMU] {name} {seconds} s: moved {math.hypot(dx, dy):.2f} m "
+        print(f"[IMU] {name} {seconds} s: moved {math.hypot(dx, dy):.2f} m, "
+              f"dtheta {-math.degrees(change.delta_rotation_rad.z):+.1f} deg "
               f"(x {dx:+.2f}, y {dy:+.2f}; {change.sample_count} samples, {change.read_errors} read errors, "
               f"{change.sensor_resets} resets)")
 
