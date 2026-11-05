@@ -10,6 +10,7 @@ from typing import Tuple
 import sys
 import traceback
 import csv
+import math
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,7 +113,74 @@ def move_calibration(Rover : RoverDrive):
     BlockedMovement.rotateright(Rover, 200, 2.0)
 
 def imu_calibration(Rover : RoverDrive, logName : str):
-    pass
+    """Set up the IMU and define left, right, forward and backward at module level.
+
+    Each of those runs one blocked movement for the given seconds and saves its IMU
+    samples as imu-<logName>-<trial>-<movement>.csv. left and right print the heading
+    change about the sensor z axis; forward and backward print the distance moved,
+    estimated by integrating acceleration in the sensor x-y plane.
+    """
+    global imu, left, right, forward, backward
+
+    print("[IMUSETUP] Begin")
+    if globals().get("imu") is not None:
+        imu.close()
+    configured_bus_id = os.environ.get("I2C_BUS_ID")
+    bus_path = f"/dev/i2c-{configured_bus_id}" if configured_bus_id is not None else None
+    try:
+        imu = IMUWrapper(bus_path=bus_path)
+    except Exception as e:
+        imu = None
+        print(f"[IMUSETUP] Failed to create IMU: {e}\n{traceback.format_exc()}")
+        return
+    print("[IMUSETUP] End")
+
+    trial = 0
+
+    def measure(movement, name: str, seconds: float, speed: int) -> StateChange:
+        nonlocal trial
+        trial += 1
+        clock_offset_ns = time.time_ns() - time.monotonic_ns()
+        change = movement(Rover, speed, seconds, imu=imu)
+        save_imu_samples(log_dir / f"imu-{logName}-{trial:03d}-{name}.csv", change, clock_offset_ns)
+        return change
+
+    def displacement(change: StateChange) -> Tuple[float, float]:
+        # Acceleration less the stationary reading, integrated twice by trapezoid.
+        reference = change.start_acceleration
+        velocity = [0.0, 0.0]
+        position = [0.0, 0.0]
+        for previous, current in zip(change.samples, change.samples[1:]):
+            dt = (current.header.stamp.to_nanoseconds() - previous.header.stamp.to_nanoseconds()) / 1e9
+            for axis, name in enumerate(("x", "y")):
+                acceleration = 0.5 * (getattr(previous.linear_acceleration, name) + getattr(current.linear_acceleration, name)) - getattr(reference, name)
+                last_velocity = velocity[axis]
+                velocity[axis] += acceleration * dt
+                position[axis] += 0.5 * (last_velocity + velocity[axis]) * dt
+        return position[0], position[1]
+
+    def report_rotation(name: str, seconds: float, change: StateChange):
+        rotation = change.delta_rotation_rad
+        print(f"[IMU] {name} {seconds} s: dtheta {math.degrees(rotation.z):+.1f} deg "
+              f"(x {math.degrees(rotation.x):+.1f}, y {math.degrees(rotation.y):+.1f}; "
+              f"{change.sample_count} samples, {change.read_errors} read errors)")
+
+    def report_distance(name: str, seconds: float, change: StateChange):
+        dx, dy = displacement(change)
+        print(f"[IMU] {name} {seconds} s: moved {math.hypot(dx, dy):.2f} m "
+              f"(x {dx:+.2f}, y {dy:+.2f}; {change.sample_count} samples, {change.read_errors} read errors)")
+
+    def left(seconds: float, speed: int = 200):
+        report_rotation("left", seconds, measure(BlockedMovement.rotateleft, "left", seconds, speed))
+
+    def right(seconds: float, speed: int = 200):
+        report_rotation("right", seconds, measure(BlockedMovement.rotateright, "right", seconds, speed))
+
+    def forward(seconds: float, speed: int = 200):
+        report_distance("forward", seconds, measure(BlockedMovement.moveforward, "forward", seconds, speed))
+
+    def backward(seconds: float, speed: int = 200):
+        report_distance("backward", seconds, measure(BlockedMovement.movebackward, "backward", seconds, speed))
 
 def rover_initialize():
     # I2C Setup for NVIDIA Jetson:
@@ -127,15 +195,6 @@ def rover_initialize():
         print(f"[I2CSETUP] Failed to create I2C bus: {e}\n{traceback.format_exc()}")
         return 
     print("[I2CSETUP] End")
-
-    print("[IMUSETUP] Begin:")
-    bus_path = f"/dev/i2c-{i2c_bus_id}" if i2c_bus_id is not None else None
-    try:
-        imu = IMUWrapper(bus_path=bus_path)
-    except Exception as e:
-        print(f"[IMUSETUP] Failed to create IMU: {e}\n{traceback.format_exc()}")
-        return
-    print("[IMUSETUP] End")
 
     Rover : RoverDrive = RoverDrive(
         3200, 
