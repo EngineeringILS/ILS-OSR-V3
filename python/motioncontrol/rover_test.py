@@ -111,9 +111,12 @@ def move_calibration(Rover : RoverDrive):
     BlockedMovement.rotateleft(Rover, 200, 2.0)
     BlockedMovement.rotateright(Rover, 200, 2.0)
 
+def imu_calibration(Rover : RoverDrive, logName : str):
+    pass
+
 def rover_initialize():
     # I2C Setup for NVIDIA Jetson:
-    print("[I2CSETUP] Begin:")
+    print("[I2CSETUP] Begin")
     try:
         configured_bus_id = os.environ.get("I2C_BUS_ID")
         i2c_bus_id = int(configured_bus_id) if configured_bus_id is not None else None
@@ -139,9 +142,9 @@ def rover_initialize():
     )
 
     Rover.debug = True 
+    print("[ROVER]  RoverDrive debug mode enabled.")
     print("[ROVER] RoverDrive initialization begin.")
     print("[INFO] Rover initialization may make up to 30 seconds.")
-    print("[ROVER]  RoverDrive debug mode enabled.")
     try:
         Rover.bringup(
             usb_ports=serial_ports,
